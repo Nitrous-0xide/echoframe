@@ -115,6 +115,7 @@ The installer is written to `release/ECHOFRAME Setup 0.9.8.exe`. It is unsigned.
 - `npm run smoke:visual` renders the studio offscreen, checks key layout and transparency invariants, and writes screenshots to `artifacts/`.
 - `npm run smoke:local` loads the synthetic WAV and enhanced LRC and verifies the lyric timeline.
 - `npm run smoke:package` starts the built app and checks its IPC, media source, and live lyrics.
+- `npm run smoke:miniplayer` drives the miniplayer's pause and +10 second controls against the built app using the demo track.
 
 ## Project layout
 
