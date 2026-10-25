@@ -522,7 +522,7 @@ function Studio() {
           </button>)}
         </nav>
         <div className="status-card">
-          <div className="status-row"><span className={`status-dot ${status.audioCaptureActive ? 'live' : ''}`}/><span>{sourceLabel}</span><span className="status-version">v0.9.8</span></div>
+          <div className="status-row"><span className={`status-dot ${status.audioCaptureActive ? 'live' : ''}`}/><span>{sourceLabel}</span><span className="status-version">v0.9.9</span></div>
           <div className="status-detail">{status.audioCaptureActive ? 'Audio analysis on' : 'Audio analysis off'}</div>
         </div>
       </div>
@@ -980,7 +980,7 @@ function Studio() {
             </Group>
             <Group title="System" className="span-2">
               <div className="status-list">
-                <div><span>Version</span><b>0.9.8</b></div>
+                <div><span>Version</span><b>0.9.9</b></div>
                 <div><span>Playback source</span><b>{sourceLabel}</b></div>
                 <div><span>Lyrics</span><b>{lyricSummary}</b></div>
                 <div><span>Displays</span><b>{status.displayCount}</b></div>

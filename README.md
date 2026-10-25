@@ -19,13 +19,13 @@ Everything else is there to shape that atmosphere: typography, motion, colour, a
 - **A real studio.** Six starting presets, saved looks, versioned JSON import/export, ten motion behaviours, three placement modes, artwork-derived palettes, and a performance panel.
 - **A miniplayer when you want one.** An optional tall panel on either edge collapses the lyrics into a single readable column, with an always-visible minimal transport and song details a click away.
 - **Shortcuts and motion, on your terms.** Bind any toggle to a global key, tune or disable studio page animations, and choose a bounce style, speed, or silence for the words in the miniplayer.
-- **A frameless studio.** The brand row and toolbar double as the window drag surface, with integrated minimize, maximize, and close controls.
+- **A frameless studio.** The brand row and toolbar double as the window drag surface, with integrated minimize, maximize, and close controls and a liquid-glass tab selector.
 
 ![Words continuing to flow around the desktop](docs/media/overlay-wordflow.gif)
 
 ## Install
 
-Download **[ECHOFRAME 0.9.8](https://github.com/Nitrous-0xide/echoframe/releases/latest)** for Windows 10/11 x64.
+Download **[ECHOFRAME 0.9.9](https://github.com/Nitrous-0xide/echoframe/releases/latest)** for Windows 10/11 x64.
 
 The installer is unsigned, so Windows SmartScreen may ask you to confirm before running it. There is no account, telemetry, or background updater.
 
@@ -41,6 +41,10 @@ The tray icon reopens the studio or hides the overlay. Closing the studio leaves
 
 ## Screenshots
 
+![Studio walkthrough](docs/media/studio-flow.gif)
+
+*Switching sections in the frameless studio: liquid-glass tabs, animated page transitions, and integrated window controls.*
+
 | Workspace | Now playing |
 |:---:|:---:|
 | ![Studio workspace with live preview](docs/media/studio-home.png) | ![Now playing with a synced lyric timeline](docs/media/studio-now-playing.png) |
@@ -53,9 +57,9 @@ The tray icon reopens the studio or hides the overlay. Closing the studio leaves
 
 An optional second surface for the same word-level lyrics. Turn it on and the desktop edge words collapse into a tall panel on either side of the primary display; the peripheral light field stays where it is.
 
-| Lyrics | Song details |
+| Lyrics and bounce | Song details |
 |:---:|:---:|
-| ![Miniplayer with the active lyric line](docs/media/miniplayer.png) | ![Song details with the transport still visible](docs/media/miniplayer-details.png) |
+| ![Miniplayer word bounce](docs/media/miniplayer-bounce.gif) | ![Song details with the transport still visible](docs/media/miniplayer-details.png) |
 
 The panel keeps a compact transport visible at all times: previous, −10 seconds, play/pause, +10 seconds, and next. The title bar opens song details in place without hiding those controls. Drag the panel by its header; its position is remembered, and changing the side in the studio re-anchors it.
 
@@ -118,7 +122,7 @@ npm run check
 npm run build
 ```
 
-The installer is written to `release/ECHOFRAME Setup 0.9.8.exe`. It is unsigned.
+The installer is written to `release/ECHOFRAME Setup 0.9.9.exe`. It is unsigned.
 
 ### Development notes
 
@@ -162,7 +166,7 @@ Inside the miniplayer, drag the header to move the panel and click the title bar
 
 ## Status and limits
 
-ECHOFRAME 0.9.8 is an unsigned Windows preview. The following are known limits rather than hidden behaviour:
+ECHOFRAME 0.9.9 is an unsigned Windows preview. The following are known limits rather than hidden behaviour:
 
 - Windows only. Media detection depends on the player publishing metadata and a timeline to the system; some players do not.
 - Some tracks have no timed lyrics on LRCLIB. Playback continues without words in that case.
