@@ -43,6 +43,9 @@ export interface AppSettings {
   miniplayerEnabled: boolean;
   miniplayerSide: MiniplayerSide;
   miniplayerScale: number;
+  miniplayerOpacity: number;
+  miniplayerX: number | null;
+  miniplayerY: number | null;
 }
 export interface AudioFeatures {
   timestampMs: number; leftRms: number; rightRms: number; balance: number;
@@ -103,5 +106,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   renderScale: 1,
   fontFamily: 'Segoe UI', fontWeight: 800, letterSpacing: 0, outlineWidth: 10, glowStrength: 30,
   lightingOnly: false, lightingEdges: ['top', 'right', 'bottom', 'left'], placementMode: 'Strict Edge', manualExclusion: null,
-  lyricOffsetMs: 0, miniplayerEnabled: false, miniplayerSide: 'right', miniplayerScale: 1
+  lyricOffsetMs: 0, miniplayerEnabled: false, miniplayerSide: 'right', miniplayerScale: 1,
+  miniplayerOpacity: .94, miniplayerX: null, miniplayerY: null
 };

@@ -61,7 +61,7 @@ function lyricStatusText(state?: RuntimeStatus['lyricsStatus']) {
 }
 
 /* Icons: one stroke family, 16px grid, used everywhere in the interface. */
-type IconName = 'home' | 'note' | 'frame' | 'type' | 'motion' | 'light' | 'theme' | 'wave' | 'placement' | 'preset' | 'gauge' | 'settings' | 'play' | 'pause' | 'plus' | 'minus' | 'chevron' | 'guides' | 'copy' | 'upload' | 'download' | 'panel' | 'prev' | 'next' | 'close' | 'back';
+type IconName = 'home' | 'note' | 'frame' | 'type' | 'motion' | 'light' | 'theme' | 'wave' | 'placement' | 'preset' | 'gauge' | 'settings' | 'play' | 'pause' | 'plus' | 'minus' | 'chevron' | 'guides' | 'copy' | 'upload' | 'download' | 'panel' | 'prev' | 'next' | 'close' | 'back' | 'info';
 const iconPaths: Record<IconName, ReactNode> = {
   home: <><path d="M2.8 7.3 8 2.9l5.2 4.4v5.5c0 .5-.4.9-.9.9H3.7c-.5 0-.9-.4-.9-.9z"/><path d="M6.4 13.6V9.5h3.2v4.1"/></>,
   note: <><circle cx="5.3" cy="11.3" r="1.9"/><path d="M7.2 11.3V4.2l4.5-1.1v6.2"/><circle cx="9.8" cy="10.3" r="1.9"/></>,
@@ -85,6 +85,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   upload: <><path d="M8 10.2V2.6M5.2 5.4 8 2.6l2.8 2.8"/><path d="M2.8 10.4v2.2c0 .4.3.8.8.8h8.8c.5 0 .8-.4.8-.8v-2.2"/></>,
   download: <><path d="M8 2.6v7.6M5.2 7.4 8 10.2l2.8-2.8"/><path d="M2.8 10.4v2.2c0 .4.3.8.8.8h8.8c.5 0 .8-.4.8-.8v-2.2"/></>,
   panel: <><rect x="4.3" y="2.4" width="7.4" height="11.2" rx="1.5"/><path d="M6.2 5.5h3.6M6.2 7.7h3.6M6.2 9.9h2.3"/></>,
+  info: <><circle cx="8" cy="8" r="5.6"/><path d="M8 7.2v3.5"/><circle cx="8" cy="5.1" r=".65" fill="currentColor" stroke="none"/></>,
   prev: <><path d="M4.8 3.8v8.4" strokeWidth="1.6"/><path d="M12 3.9 6.1 8l5.9 4.1z" fill="currentColor" stroke="none"/></>,
   next: <><path d="M11.2 3.8v8.4" strokeWidth="1.6"/><path d="M4 3.9 9.9 8 4 12.1z" fill="currentColor" stroke="none"/></>,
   close: <path d="M4.2 4.2 11.8 11.8M11.8 4.2 4.2 11.8"/>,
@@ -382,11 +383,11 @@ function Studio() {
   const savePreset = () => {
     const name = presetName.trim().slice(0, 60);
     if (!name) return;
-    const next = [...savedPresets.filter((item) => item.name !== name), { name, settings: { ...settings, audioEnabled: false } }].slice(-50);
+    const next = [...savedPresets.filter((item) => item.name !== name), { name, settings: { ...settings, audioEnabled: false, miniplayerX: null, miniplayerY: null } }].slice(-50);
     setSavedPresets(next); localStorage.setItem('echoframe-presets-v1', JSON.stringify(next));
   };
   const exportPreset = () => {
-    const blob = new Blob([JSON.stringify({ schemaVersion: 1, name: presetName.trim() || 'ECHOFRAME', settings: { ...settings, audioEnabled: false } }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ schemaVersion: 1, name: presetName.trim() || 'ECHOFRAME', settings: { ...settings, audioEnabled: false, miniplayerX: null, miniplayerY: null } }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${(presetName.trim() || 'ECHOFRAME').replace(/[^a-z0-9_-]/gi, '-')}.echoframe.json`;
     anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -398,7 +399,7 @@ function Studio() {
       if (!value || typeof value !== 'object' || (value as { schemaVersion?: unknown }).schemaVersion !== 1 || !(value as { settings?: unknown }).settings || typeof (value as { settings?: unknown }).settings !== 'object') throw new Error('Unsupported preset file.');
       const bundle = value as { name?: string; settings: Partial<AppSettings> };
       setPresetName(typeof bundle.name === 'string' ? bundle.name.slice(0, 60) : 'Imported preset');
-      update({ ...bundle.settings, audioEnabled: false });
+      update({ ...bundle.settings, audioEnabled: false, miniplayerX: null, miniplayerY: null });
     } catch (error) { alert(error instanceof Error ? error.message : 'Could not import preset.'); }
   };
   const duplicatePreset = (item: { name: string; settings: AppSettings }) => {
@@ -757,17 +758,18 @@ function Studio() {
                 </div>
               </div>
               <Slider label="Scale" value={settings.miniplayerScale} min={.75} max={1.35} step={.05} unit="%" onChange={(value) => update({ miniplayerScale: value })}/>
-              <p className="hint">While the miniplayer is on, lyric words leave the desktop edges and appear only in the panel. The peripheral light field stays on the desktop.</p>
+              <Slider label="Background opacity" value={settings.miniplayerOpacity} min={.25} max={1} step={.01} unit="%" onChange={(value) => update({ miniplayerOpacity: value })} hint="Lower values let the desktop show through the panel."/>
+              <p className="hint">Drag the panel by its header. Its position is remembered; the side setting re-anchors it. While the miniplayer is on, lyric words leave the desktop edges and appear only in the panel — the peripheral light field stays on the desktop.</p>
             </Group>
             <Group title="In the panel">
               <div className="status-list">
                 <div><span>Lyrics</span><b>Word-level highlight</b></div>
+                <div><span>Transport</span><b>Always visible</b></div>
                 <div><span>Song details</span><b>Click the title bar</b></div>
-                <div><span>Previous / next</span><b>Windows sessions</b></div>
-                <div><span>Back / forward 10s</span><b>Windows and local</b></div>
+                <div><span>Move</span><b>Drag the header</b></div>
               </div>
-              <p className="hint">The panel stays above other windows and accepts clicks only within its own bounds. Open the title bar for details, transport, side, and size.</p>
-              <p className="hint">{settings.miniplayerEnabled ? `Live on the ${settings.miniplayerSide} edge at ${Math.round(settings.miniplayerScale * 100)}%.` : 'Turn the miniplayer on to place it on screen.'}</p>
+              <p className="hint">The panel stays above other windows and accepts clicks only within its own bounds. Side, scale, and background opacity are set here; the panel itself stays a player.</p>
+              <p className="hint">{settings.miniplayerEnabled ? `Live on the ${settings.miniplayerSide} edge at ${Math.round(settings.miniplayerScale * 100)}% with ${Math.round(settings.miniplayerOpacity * 100)}% background.` : 'Turn the miniplayer on to place it on screen.'}</p>
             </Group>
           </div>
         </Page>}
@@ -885,7 +887,7 @@ function Miniplayer() {
   const [playback, setPlayback] = useState<PlaybackState | null>(null);
   const [lyrics, setLyrics] = useState<TimedLine[]>([]);
   const [clock, setClock] = useState(0);
-  const [details, setDetails] = useState(false);
+  const [info, setInfo] = useState(false);
   const receivedAt = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -926,6 +928,7 @@ function Miniplayer() {
   const duration = playback?.durationMs ?? 0;
   const progress = duration > 0 ? clamp((clock / duration) * 100, 0, 100) : 0;
   const hasTrack = !!playback?.trackId;
+  const wordCount = lyrics.reduce((sum, line) => sum + (line.words?.length ?? 0), 0);
   const command = (value: MediaCommand) => { void window.echo?.mediaControl(value); };
   const emptyText = !hasTrack ? 'Play something to see its lyrics.'
     : status.lyricsStatus === 'searching' ? 'Looking up timed lyrics…'
@@ -935,96 +938,84 @@ function Miniplayer() {
     : 'No timed lyrics for this track.';
 
   return <div className="mp-root">
-    <section className="mp-panel" style={{ '--mp-primary': settings.color, '--mp-secondary': settings.secondaryColor, '--mp-scale': settings.miniplayerScale } as CSSProperties}>
-      <header className="mp-head">
+    <section className="mp-panel" style={{ '--mp-primary': settings.color, '--mp-secondary': settings.secondaryColor, '--mp-scale': settings.miniplayerScale, '--mp-opacity': settings.miniplayerOpacity } as CSSProperties}>
+      <header className="mp-head" title="Drag to move">
+        <span className="mp-grip" aria-hidden="true"><i/><i/><i/><i/><i/><i/></span>
         <BrandMark/>
         <span className="mp-wordmark">ECHOFRAME</span>
         <span className={`mp-status ${status.lyricsStatus ?? 'unavailable'}`} aria-hidden="true"/>
         <button type="button" className="mp-icon-btn" onClick={() => update({ miniplayerEnabled: false })} title="Hide miniplayer" aria-label="Hide miniplayer"><Icon name="close"/></button>
       </header>
-      <div className="mp-lyrics" ref={listRef} style={{ fontFamily: `"${settings.fontFamily}", Arial, sans-serif`, fontWeight: settings.fontWeight, letterSpacing: `${settings.letterSpacing}px` }}>
-        <div className="mp-lines">
-          {lyrics.length ? lyrics.map((line, index) => {
-            const active = index === activeIndex;
-            const words = line.words?.length ? line.words : null;
-            return <div key={`${index}-${line.startMs}`} ref={(element) => { lineRefs.current[index] = element; }}
-              className={`mp-line ${active ? 'active' : index < activeIndex ? 'past' : ''}`}>
-              {active && words
-                ? words.map((word, wordIndex) => {
-                  const sung = word.startMs <= lyricClock;
-                  const current = sung && (words[wordIndex + 1]?.startMs ?? Infinity) > lyricClock;
-                  return <span key={wordIndex} className={`mp-word ${sung ? 'sung' : ''} ${current ? 'current' : ''}`}>{word.text} </span>;
-                })
-                : <span className="mp-line-text">{line.text}</span>}
-            </div>;
-          }) : <p className="mp-empty">{emptyText}</p>}
-        </div>
-      </div>
-      <button type="button" className="mp-now" onClick={() => setDetails(true)} aria-label="Open song details">
-        <span className="mp-now-copy"><b>{title ?? 'Nothing playing'}</b><span>{artist ?? (local ? 'Local playback' : 'Windows media')}</span></span>
-        <span className="mp-now-chevron"><Icon name="chevron"/></span>
-      </button>
 
-      <div className={`mp-details ${details ? 'open' : ''}`} aria-hidden={!details}>
-        <header className="mp-detail-head">
-          <button type="button" className="mp-icon-btn" onClick={() => setDetails(false)} aria-label="Back to lyrics"><Icon name="back"/></button>
-          <span>Song details</span>
-          <button type="button" className="mp-icon-btn" onClick={() => update({ miniplayerEnabled: false })} aria-label="Hide miniplayer"><Icon name="close"/></button>
-        </header>
-        <div className="mp-detail-body">
-          <div className="mp-track">
-            <span className="mp-art" style={{ background: `linear-gradient(140deg, ${settings.color}, ${settings.secondaryColor})` }}><Icon name="note"/></span>
-            <div className="mp-track-copy">
-              <h2>{title ?? 'Nothing playing'}</h2>
-              <p>{artist ?? (local ? 'Local playback' : 'Start a Windows media session')}</p>
-              {playback?.album && <span>{playback.album}</span>}
-            </div>
+      <div className={`mp-body ${info ? 'showing-info' : ''}`}>
+        <div className="mp-lyrics" ref={listRef} style={{ fontFamily: `"${settings.fontFamily}", Arial, sans-serif`, fontWeight: settings.fontWeight, letterSpacing: `${settings.letterSpacing}px` }}>
+          <div className="mp-lines">
+            {lyrics.length ? lyrics.map((line, index) => {
+              const active = index === activeIndex;
+              const words = line.words?.length ? line.words : null;
+              return <div key={`${index}-${line.startMs}`} ref={(element) => { lineRefs.current[index] = element; }}
+                className={`mp-line ${active ? 'active' : index < activeIndex ? 'past' : ''}`}>
+                {active && words
+                  ? words.map((word, wordIndex) => {
+                    const sung = word.startMs <= lyricClock;
+                    const current = sung && (words[wordIndex + 1]?.startMs ?? Infinity) > lyricClock;
+                    return <span key={wordIndex} className={`mp-word ${sung ? 'sung' : ''} ${current ? 'current' : ''}`}>{word.text} </span>;
+                  })
+                  : <span className="mp-line-text">{line.text}</span>}
+              </div>;
+            }) : <p className="mp-empty">{emptyText}</p>}
           </div>
-          <div className="mp-meta">
-            <div><span>Source</span><b>{local ? 'Local file' : sourceName(status.mediaSource)}</b></div>
-            <div><span>Lyrics</span><b>{lyricStatusText(status.lyricsStatus)}</b></div>
-            <div><span>Timing</span><b>{lyrics.length ? timingLabel(status.lyricsTiming) : '—'}</b></div>
-            <div><span>Lines / words</span><b>{lyrics.length ? `${lyrics.length} / ${lyrics.reduce((sum, line) => sum + (line.words?.length ?? 0), 0)}` : '—'}</b></div>
-            <div><span>Lyric sync</span><span className="mp-offset">
-              <button type="button" onClick={() => update({ lyricOffsetMs: clamp(settings.lyricOffsetMs - 25, -750, 750) })} aria-label="Lyrics later">−</button>
-              <output>{settings.lyricOffsetMs > 0 ? '+' : ''}{settings.lyricOffsetMs} ms</output>
-              <button type="button" onClick={() => update({ lyricOffsetMs: clamp(settings.lyricOffsetMs + 25, -750, 750) })} aria-label="Lyrics earlier">+</button>
-            </span></div>
-          </div>
-          <div className="mp-progress">
-            <span className="mp-progress-track"><i style={{ width: `${progress}%` }}/></span>
-            <div className="mp-times"><span>{clockText(clock / 1000)}</span><span>{clockText(duration / 1000)}</span></div>
-          </div>
-          <div className="mp-transport">
-            <button type="button" className="mp-tbtn" onClick={() => command('previous')} disabled={local || !hasTrack} aria-label="Previous track" title="Previous track"><Icon name="prev"/></button>
-            <button type="button" className="mp-tbtn mp-seek" onClick={() => command('back')} disabled={!hasTrack} aria-label="Back 10 seconds" title="Back 10 seconds">−10</button>
-            <button type="button" className="mp-play" onClick={() => command('toggle')} disabled={!hasTrack} aria-label={playback?.playing ? 'Pause' : 'Play'} title={playback?.playing ? 'Pause' : 'Play'}>{playback?.playing ? <Icon name="pause"/> : <Icon name="play"/>}</button>
-            <button type="button" className="mp-tbtn mp-seek" onClick={() => command('forward')} disabled={!hasTrack} aria-label="Forward 10 seconds" title="Forward 10 seconds">+10</button>
-            <button type="button" className="mp-tbtn" onClick={() => command('next')} disabled={local || !hasTrack} aria-label="Next track" title="Next track"><Icon name="next"/></button>
-          </div>
-          {local && <p className="mp-note">Track skipping is available for Windows media sessions. Local playback supports play, pause, and ±10 seconds.</p>}
-          {(activeLine || nextLine) && <div className="mp-glimpse" style={{ fontFamily: `"${settings.fontFamily}", Arial, sans-serif`, fontWeight: settings.fontWeight, letterSpacing: `${settings.letterSpacing}px` }}>
-            <span className="mp-glimpse-label">Now</span>
-            <p className="current">{activeLine?.text ?? nextLine?.text}</p>
-            {activeLine && nextLine && <p className="next">{nextLine.text}</p>}
-          </div>}
-          <div className="mp-config">
-            <div className="mp-config-row"><span>Side</span>
-              <div className="mp-seg">
-                <button type="button" className={settings.miniplayerSide === 'left' ? 'on' : ''} onClick={() => update({ miniplayerSide: 'left' })}>Left</button>
-                <button type="button" className={settings.miniplayerSide === 'right' ? 'on' : ''} onClick={() => update({ miniplayerSide: 'right' })}>Right</button>
+        </div>
+
+        <div className={`mp-info ${info ? 'open' : ''}`} aria-hidden={!info}>
+          <header className="mp-info-head">
+            <button type="button" className="mp-icon-btn" onClick={() => setInfo(false)} aria-label="Back to lyrics"><Icon name="back"/></button>
+            <span>Song details</span>
+          </header>
+          <div className="mp-info-body">
+            <div className="mp-track">
+              <span className="mp-art" style={{ background: `linear-gradient(140deg, ${settings.color}, ${settings.secondaryColor})` }}><Icon name="note"/></span>
+              <div className="mp-track-copy">
+                <h2>{title ?? 'Nothing playing'}</h2>
+                <p>{artist ?? (local ? 'Local playback' : 'Start a Windows media session')}</p>
+                {playback?.album && <span>{playback.album}</span>}
               </div>
             </div>
-            <div className="mp-config-row"><span>Size</span>
-              <div className="mp-stepper">
-                <button type="button" onClick={() => update({ miniplayerScale: Math.max(.75, Math.round((settings.miniplayerScale - .05) * 100) / 100) })} aria-label="Smaller">−</button>
-                <output>{Math.round(settings.miniplayerScale * 100)}%</output>
-                <button type="button" onClick={() => update({ miniplayerScale: Math.min(1.35, Math.round((settings.miniplayerScale + .05) * 100) / 100) })} aria-label="Larger">+</button>
-              </div>
+            <div className="mp-meta">
+              <div><span>Source</span><b>{local ? 'Local file' : sourceName(status.mediaSource)}</b></div>
+              <div><span>Lyrics</span><b>{lyricStatusText(status.lyricsStatus)}</b></div>
+              <div><span>Timing</span><b>{lyrics.length ? timingLabel(status.lyricsTiming) : '—'}</b></div>
+              <div><span>Lines / words</span><b>{lyrics.length ? `${lyrics.length} / ${wordCount}` : '—'}</b></div>
+              <div><span>Sync offset</span><b>{settings.lyricOffsetMs > 0 ? '+' : ''}{settings.lyricOffsetMs} ms</b></div>
             </div>
+            {local && <p className="mp-note">Track skipping is available for Windows sessions. Play/pause and ±10 seconds control the local file.</p>}
+            <p className="mp-note">Drag the header to move the panel. Side, size, and background are in the studio.</p>
+            {(activeLine || nextLine) && <div className="mp-glimpse" style={{ fontFamily: `"${settings.fontFamily}", Arial, sans-serif`, fontWeight: settings.fontWeight, letterSpacing: `${settings.letterSpacing}px` }}>
+              <span className="mp-glimpse-label">Now</span>
+              <p className="current">{activeLine?.text ?? nextLine?.text}</p>
+              {activeLine && nextLine && <p className="next">{nextLine.text}</p>}
+            </div>}
           </div>
         </div>
       </div>
+
+      <footer className="mp-foot">
+        <div className="mp-progress">
+          <span className="mp-progress-track"><i style={{ width: `${progress}%` }}/></span>
+          <div className="mp-times"><span>{clockText(clock / 1000)}</span><span>{clockText(duration / 1000)}</span></div>
+        </div>
+        <button type="button" className="mp-now" onClick={() => setInfo(!info)} aria-pressed={info} aria-label={info ? 'Back to lyrics' : 'Song details'}>
+          <span className="mp-now-copy"><b>{title ?? 'Nothing playing'}</b><span>{artist ?? (local ? 'Local playback' : 'Windows media')}</span></span>
+          <span className="mp-now-action"><Icon name={info ? 'back' : 'info'}/></span>
+        </button>
+        <div className="mp-transport">
+          <button type="button" className="mp-tbtn" onClick={() => command('previous')} disabled={local || !hasTrack} aria-label="Previous track" title="Previous track"><Icon name="prev"/></button>
+          <button type="button" className="mp-tbtn mp-seek" onClick={() => command('back')} disabled={!hasTrack} aria-label="Back 10 seconds" title="Back 10 seconds">−10</button>
+          <button type="button" className="mp-play" onClick={() => command('toggle')} disabled={!hasTrack} aria-label={playback?.playing ? 'Pause' : 'Play'} title={playback?.playing ? 'Pause' : 'Play'}>{playback?.playing ? <Icon name="pause"/> : <Icon name="play"/>}</button>
+          <button type="button" className="mp-tbtn mp-seek" onClick={() => command('forward')} disabled={!hasTrack} aria-label="Forward 10 seconds" title="Forward 10 seconds">+10</button>
+          <button type="button" className="mp-tbtn" onClick={() => command('next')} disabled={local || !hasTrack} aria-label="Next track" title="Next track"><Icon name="next"/></button>
+        </div>
+      </footer>
     </section>
   </div>;
 }

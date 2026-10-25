@@ -23,6 +23,16 @@ test('scale changes the panel size and is clamped to a usable range', () => {
   assert.equal(miniplayerScale(Number.NaN), 1);
 });
 
+test('a dragged position is kept, and a panel dragged past an edge stays reachable', () => {
+  const placed = miniplayerBounds(area, 'right', 1, { x: 420, y: 160 });
+  assert.equal(placed.x, 420);
+  assert.equal(placed.y, 160);
+  assert.equal(placed.width, miniplayerBounds(area, 'right', 1).width);
+  const offscreen = miniplayerBounds(area, 'right', 1, { x: -2000, y: 5000 });
+  assert.equal(offscreen.x, -placed.width + 80);
+  assert.equal(offscreen.y, area.height - 80);
+});
+
 test('a short or narrow work area keeps the panel fully on screen', () => {
   const short = miniplayerBounds({ x: 100, y: 40, width: 1366, height: 728 }, 'right', 1.35);
   assert.ok(short.height <= 728 - MINIPLAYER_MARGIN * 2);

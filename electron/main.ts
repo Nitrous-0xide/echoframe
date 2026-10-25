@@ -17,7 +17,8 @@ const defaults: AppSettings = {
   targetFps: 60, renderScale: 1,
   fontFamily: 'Segoe UI', fontWeight: 800, letterSpacing: 0, outlineWidth: 10, glowStrength: 30,
   lightingOnly: false, lightingEdges: ['top', 'right', 'bottom', 'left'], placementMode: 'Strict Edge', manualExclusion: null,
-  lyricOffsetMs: 0, miniplayerEnabled: false, miniplayerSide: 'right', miniplayerScale: 1
+  lyricOffsetMs: 0, miniplayerEnabled: false, miniplayerSide: 'right', miniplayerScale: 1,
+  miniplayerOpacity: .94, miniplayerX: null, miniplayerY: null
 };
 const edgeValues: Edge[] = ['top', 'right', 'bottom', 'left'];
 const presets = ['Ethereal', 'Neon Depth', 'Minimal', 'Kinetic', 'Ambient', 'Spatial'];
@@ -93,7 +94,10 @@ function validate(input: Partial<AppSettings>): AppSettings {
     lyricOffsetMs: Math.round(clamp(input.lyricOffsetMs, 0, -750, 750) / 25) * 25,
     miniplayerEnabled: typeof input.miniplayerEnabled === 'boolean' ? input.miniplayerEnabled : defaults.miniplayerEnabled,
     miniplayerSide: input.miniplayerSide === 'left' || input.miniplayerSide === 'right' ? input.miniplayerSide : defaults.miniplayerSide,
-    miniplayerScale: Math.round(miniplayerScale(clamp(input.miniplayerScale, defaults.miniplayerScale, 0, 5)) * 100) / 100
+    miniplayerScale: Math.round(miniplayerScale(clamp(input.miniplayerScale, defaults.miniplayerScale, 0, 5)) * 100) / 100,
+    miniplayerOpacity: Math.round(clamp(input.miniplayerOpacity, defaults.miniplayerOpacity, .2, 1) * 100) / 100,
+    miniplayerX: typeof input.miniplayerX === 'number' && Number.isFinite(input.miniplayerX) ? Math.round(input.miniplayerX) : null,
+    miniplayerY: typeof input.miniplayerY === 'number' && Number.isFinite(input.miniplayerY) ? Math.round(input.miniplayerY) : null
   };
 }
 function loadSettings() {
@@ -215,8 +219,19 @@ function createOverlay(monitor: Display) {
   page(window, 'overlay');
   overlays.set(monitor.id, window);
 }
-function miniplayerTargetBounds() {
-  return miniplayerBounds(screen.getPrimaryDisplay().workArea, settings.miniplayerSide, settings.miniplayerScale);
+let miniplayerSideApplied: AppSettings['miniplayerSide'] | null = null;
+let miniplayerScaleApplied: number | null = null;
+let miniplayerBoundsLock = 0;
+function miniplayerPosition() {
+  return settings.miniplayerX !== null && settings.miniplayerY !== null ? { x: settings.miniplayerX, y: settings.miniplayerY } : null;
+}
+function miniplayerTargetBounds(position = miniplayerPosition()) {
+  return miniplayerBounds(screen.getPrimaryDisplay().workArea, settings.miniplayerSide, settings.miniplayerScale, position);
+}
+function applyMiniplayerBounds(bounds: { x: number; y: number; width: number; height: number }) {
+  if (!miniplayer || miniplayer.isDestroyed()) return;
+  miniplayerBoundsLock = Date.now() + 600;
+  miniplayer.setBounds(bounds, false);
 }
 function createMiniplayer() {
   const bounds = miniplayerTargetBounds();
@@ -224,7 +239,7 @@ function createMiniplayer() {
     x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
     frame: false, transparent: true, backgroundColor: '#00000000',
     show: false, skipTaskbar: true, hasShadow: false,
-    alwaysOnTop: true, resizable: false, movable: false,
+    alwaysOnTop: true, resizable: false, movable: true,
     title: 'ECHOFRAME Miniplayer',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
@@ -239,6 +254,13 @@ function createMiniplayer() {
     broadcastStatus();
   });
   miniplayer.once('ready-to-show', () => { if (settings.miniplayerEnabled && settings.overlayEnabled) miniplayer?.showInactive(); });
+  miniplayer.on('moved', () => {
+    if (!miniplayer || Date.now() < miniplayerBoundsLock) return;
+    const moved = miniplayer.getBounds();
+    settings.miniplayerX = moved.x;
+    settings.miniplayerY = moved.y;
+    persistSettings();
+  });
   miniplayer.on('closed', () => { miniplayer = null; });
   page(miniplayer, 'miniplayer');
 }
@@ -246,15 +268,45 @@ function syncMiniplayer() {
   if (!settings.miniplayerEnabled) {
     const window = miniplayer;
     miniplayer = null;
+    miniplayerSideApplied = null;
+    miniplayerScaleApplied = null;
     if (window && !window.isDestroyed()) window.destroy();
     return;
   }
-  const bounds = miniplayerTargetBounds();
-  if (!miniplayer || miniplayer.isDestroyed()) createMiniplayer();
-  else miniplayer.setBounds(bounds, false);
+  const sideChanged = miniplayerSideApplied !== null && miniplayerSideApplied !== settings.miniplayerSide;
+  const scaleChanged = miniplayerScaleApplied !== null && miniplayerScaleApplied !== settings.miniplayerScale;
+  if (!miniplayer || miniplayer.isDestroyed()) {
+    createMiniplayer();
+    miniplayerSideApplied = settings.miniplayerSide;
+    miniplayerScaleApplied = settings.miniplayerScale;
+  } else if (sideChanged || scaleChanged) {
+    const custom = settings.miniplayerX !== null && settings.miniplayerY !== null;
+    const position = sideChanged ? null : custom ? miniplayerPosition() : null;
+    const bounds = miniplayerTargetBounds(position);
+    applyMiniplayerBounds(bounds);
+    if (!sideChanged && custom) {
+      settings.miniplayerX = bounds.x;
+      settings.miniplayerY = bounds.y;
+      persistSettings();
+    }
+    miniplayerSideApplied = settings.miniplayerSide;
+    miniplayerScaleApplied = settings.miniplayerScale;
+  }
   if (!miniplayer) return;
   if (settings.overlayEnabled) miniplayer.showInactive();
   else miniplayer.hide();
+}
+function ensureMiniplayerVisible() {
+  if (!miniplayer || miniplayer.isDestroyed()) return;
+  const current = miniplayer.getBounds();
+  const bounds = miniplayerTargetBounds({ x: current.x, y: current.y });
+  if (bounds.x === current.x && bounds.y === current.y && bounds.width === current.width && bounds.height === current.height) return;
+  applyMiniplayerBounds(bounds);
+  if (settings.miniplayerX !== null) {
+    settings.miniplayerX = bounds.x;
+    settings.miniplayerY = bounds.y;
+    persistSettings();
+  }
 }
 function reconcileDisplays() {
   const displays = screen.getAllDisplays();
@@ -268,6 +320,7 @@ function reconcileDisplays() {
     else window.setBounds(monitor.bounds, false);
   }
   syncMiniplayer();
+  ensureMiniplayerVisible();
   broadcastStatus();
 }
 function createStudio() {
@@ -369,7 +422,12 @@ app.whenReady().then(() => {
     if (!patch || typeof patch !== 'object') return settings;
     const wasCapturing = settings.audioEnabled;
     const oldDevice = settings.audioDeviceId;
+    const previousSide = settings.miniplayerSide;
     settings = validate({ ...settings, ...patch });
+    if (settings.miniplayerSide !== previousSide) {
+      settings.miniplayerX = null;
+      settings.miniplayerY = null;
+    }
     if (settings.audioEnabled && (!wasCapturing || oldDevice !== settings.audioDeviceId)) audioBridge.start(settings.audioDeviceId);
     else if (!settings.audioEnabled && wasCapturing) audioBridge.stop();
     persistSettings();

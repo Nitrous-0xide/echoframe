@@ -49,7 +49,7 @@ app.whenReady().then(async () => {
 
     await clickNav(window, 'Miniplayer');
     const miniText = await window.webContents.executeJavaScript('document.body.innerText');
-    if (!miniText.includes('Enable miniplayer') || !miniText.includes('Scale')) throw new Error('Miniplayer controls are missing');
+    if (!miniText.includes('Enable miniplayer') || !miniText.includes('Scale') || !miniText.includes('Background opacity')) throw new Error('Miniplayer controls are missing');
     await window.webContents.executeJavaScript(`[...document.querySelectorAll('.switch-row')].find((row) => row.textContent.includes('Enable miniplayer'))?.querySelector('input')?.click()`);
     await new Promise((resolve) => setTimeout(resolve, 700));
     const miniOn = await window.webContents.executeJavaScript('document.body.innerText');

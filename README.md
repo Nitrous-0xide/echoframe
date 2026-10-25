@@ -17,7 +17,7 @@ Everything else is there to shape that atmosphere: typography, motion, colour, a
 - **Made for the desktop.** Transparent per-monitor overlays stay on top, ignore the mouse, and leave the protected centre empty. Hide everything with one shortcut.
 - **Reactive but local.** Optional WASAPI loopback analysis drives the light field and motion. Audio never leaves the machine.
 - **A real studio.** Six starting presets, saved looks, versioned JSON import/export, ten motion behaviours, three placement modes, artwork-derived palettes, and a performance panel.
-- **A miniplayer when you want one.** An optional tall panel on either edge collapses the lyrics into a single readable column, with song details and transport a click away.
+- **A miniplayer when you want one.** An optional tall panel on either edge collapses the lyrics into a single readable column, with an always-visible minimal transport and song details a click away.
 
 ![Words continuing to flow around the desktop](docs/media/overlay-wordflow.gif)
 
@@ -53,9 +53,11 @@ An optional second surface for the same word-level lyrics. Turn it on and the de
 
 | Lyrics | Song details |
 |:---:|:---:|
-| ![Miniplayer with the active lyric line](docs/media/miniplayer.png) | ![Song details and transport](docs/media/miniplayer-details.png) |
+| ![Miniplayer with the active lyric line](docs/media/miniplayer.png) | ![Song details with the transport still visible](docs/media/miniplayer-details.png) |
 
-Turn it on from the Home inspector or the **Miniplayer** page. Scale the panel from that page or from its own details card. Previous and next tracks go through the Windows media session; play/pause and ±10 seconds also work for local playback. The title bar opens song details, progress, transport, side, and size. When the panel is on, the edge lyrics are hidden, so the whole lyric stream lives in one place.
+The panel keeps a compact transport visible at all times: previous, −10 seconds, play/pause, +10 seconds, and next. The title bar opens song details in place without hiding those controls. Drag the panel by its header; its position is remembered, and changing the side in the studio re-anchors it.
+
+Turn it on from the Home inspector or the **Miniplayer** page. Side, scale, and background opacity are set on that page. Previous and next tracks go through the Windows media session; play/pause and ±10 seconds also work for local playback. When the panel is on, the edge lyrics are hidden, so the whole lyric stream lives in one place.
 
 ## How it works
 
@@ -142,7 +144,7 @@ docs/media/               README images and GIFs
 
 The tray menu also opens the studio, toggles the overlay, and quits.
 
-Inside the miniplayer, the title bar opens song details, transport, side, and size. When the miniplayer is enabled, lyric words leave the desktop edges and appear in the panel; the overlay's light field stays.
+Inside the miniplayer, drag the header to move the panel and click the title bar for song details. Side, scale, and background opacity live on the Miniplayer page. When the miniplayer is enabled, lyric words leave the desktop edges and appear in the panel; the overlay's light field stays.
 
 ## Status and limits
 
@@ -152,7 +154,7 @@ ECHOFRAME 0.9.8 is an unsigned Windows preview. The following are known limits r
 - Some tracks have no timed lyrics on LRCLIB. Playback continues without words in that case.
 - Line-only lyrics use estimated word pacing, which can drift from sustained or unusually phrased vocals.
 - Live capture, click-through, and multi-monitor hotplug still deserve hands-on testing on each target setup.
-- The miniplayer appears on the primary display. Track skipping depends on the player implementing Windows transport controls; local playback supports only play/pause and ±10 seconds.
+- The miniplayer appears on the primary display and can be dragged anywhere on it. Its position is remembered; changing the side re-anchors it. Track skipping depends on the player implementing Windows transport controls; local playback supports only play/pause and ±10 seconds.
 - No source separation, licensed commercial lyrics provider, content-aware window avoidance, multiple exclusion regions, MSDF text, code signing, or automatic updates.
 - The installer is unsigned and may trigger SmartScreen.
 
