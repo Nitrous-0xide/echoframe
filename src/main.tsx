@@ -4,12 +4,14 @@ import { SpatialScene } from './scene/SpatialScene';
 import { parseLrc } from './lyrics/lrc';
 import { withWordTiming } from './lyrics/wordTiming';
 import { paletteFromArtwork, type Palette } from './theme/palette';
-import { DEFAULT_SETTINGS, type AnimationMode, type AppSettings, type AudioDevice, type AudioFeatures, type Edge, type PlaybackState, type Preset, type RuntimeStatus, type ThemeMode, type TimedLine, type WordTimingKind } from './types';
+import { DEFAULT_SETTINGS, type AnimationMode, type AppSettings, type AudioDevice, type AudioFeatures, type Edge, type MediaCommand, type PlaybackState, type Preset, type RuntimeStatus, type ThemeMode, type TimedLine, type WordTimingKind } from './types';
 import './style.css';
 
-const isOverlay = new URLSearchParams(location.search).get('view') === 'overlay';
-document.title = isOverlay ? 'ECHOFRAME Overlay' : 'ECHOFRAME Studio';
-if (isOverlay) {
+const view = new URLSearchParams(location.search).get('view');
+const isOverlay = view === 'overlay';
+const isMiniplayer = view === 'miniplayer';
+document.title = isMiniplayer ? 'ECHOFRAME Miniplayer' : isOverlay ? 'ECHOFRAME Overlay' : 'ECHOFRAME Studio';
+if (isOverlay || isMiniplayer) {
   document.documentElement.style.background = 'transparent';
   document.body.style.background = 'transparent';
 }
@@ -43,9 +45,23 @@ function clockText(seconds: number) {
   const whole = Math.floor(seconds);
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
+function sourceName(mediaSource?: string) {
+  if (!mediaSource) return 'Windows media';
+  if (/spotify/i.test(mediaSource)) return 'Spotify';
+  if (/zunemusic|mediaplayer|wmplayer/i.test(mediaSource)) return 'Media Player';
+  if (/msedge/i.test(mediaSource)) return 'Edge';
+  if (/chrome/i.test(mediaSource)) return 'Chrome';
+  if (/firefox/i.test(mediaSource)) return 'Firefox';
+  if (/vlc/i.test(mediaSource)) return 'VLC';
+  return 'Windows media';
+}
+function lyricStatusText(state?: RuntimeStatus['lyricsStatus']) {
+  return state === 'searching' ? 'Searching LRCLIB' : state === 'retrying' ? 'Retrying lookup'
+    : state === 'synced' ? 'LRCLIB' : state === 'local' ? 'Local LRC' : state === 'error' ? 'Lookup failed' : 'No timed lyrics';
+}
 
 /* Icons: one stroke family, 16px grid, used everywhere in the interface. */
-type IconName = 'home' | 'note' | 'frame' | 'type' | 'motion' | 'light' | 'theme' | 'wave' | 'placement' | 'preset' | 'gauge' | 'settings' | 'play' | 'pause' | 'plus' | 'minus' | 'chevron' | 'guides' | 'copy' | 'upload' | 'download';
+type IconName = 'home' | 'note' | 'frame' | 'type' | 'motion' | 'light' | 'theme' | 'wave' | 'placement' | 'preset' | 'gauge' | 'settings' | 'play' | 'pause' | 'plus' | 'minus' | 'chevron' | 'guides' | 'copy' | 'upload' | 'download' | 'panel' | 'prev' | 'next' | 'close' | 'back';
 const iconPaths: Record<IconName, ReactNode> = {
   home: <><path d="M2.8 7.3 8 2.9l5.2 4.4v5.5c0 .5-.4.9-.9.9H3.7c-.5 0-.9-.4-.9-.9z"/><path d="M6.4 13.6V9.5h3.2v4.1"/></>,
   note: <><circle cx="5.3" cy="11.3" r="1.9"/><path d="M7.2 11.3V4.2l4.5-1.1v6.2"/><circle cx="9.8" cy="10.3" r="1.9"/></>,
@@ -67,7 +83,12 @@ const iconPaths: Record<IconName, ReactNode> = {
   guides: <><rect x="2.4" y="3.6" width="11.2" height="8.8" rx="1.2"/><path d="M8 2.6v2M8 11.4v2M2.8 8h2M11.2 8h2" strokeDasharray="1.6 1.8"/></>,
   copy: <><rect x="2.4" y="2.4" width="8.2" height="8.2" rx="1.3"/><path d="M5.4 13.6h6.9a1.3 1.3 0 0 0 1.3-1.3V5.4"/></>,
   upload: <><path d="M8 10.2V2.6M5.2 5.4 8 2.6l2.8 2.8"/><path d="M2.8 10.4v2.2c0 .4.3.8.8.8h8.8c.5 0 .8-.4.8-.8v-2.2"/></>,
-  download: <><path d="M8 2.6v7.6M5.2 7.4 8 10.2l2.8-2.8"/><path d="M2.8 10.4v2.2c0 .4.3.8.8.8h8.8c.5 0 .8-.4.8-.8v-2.2"/></>
+  download: <><path d="M8 2.6v7.6M5.2 7.4 8 10.2l2.8-2.8"/><path d="M2.8 10.4v2.2c0 .4.3.8.8.8h8.8c.5 0 .8-.4.8-.8v-2.2"/></>,
+  panel: <><rect x="4.3" y="2.4" width="7.4" height="11.2" rx="1.5"/><path d="M6.2 5.5h3.6M6.2 7.7h3.6M6.2 9.9h2.3"/></>,
+  prev: <><path d="M4.8 3.8v8.4" strokeWidth="1.6"/><path d="M12 3.9 6.1 8l5.9 4.1z" fill="currentColor" stroke="none"/></>,
+  next: <><path d="M11.2 3.8v8.4" strokeWidth="1.6"/><path d="M4 3.9 9.9 8 4 12.1z" fill="currentColor" stroke="none"/></>,
+  close: <path d="M4.2 4.2 11.8 11.8M11.8 4.2 4.2 11.8"/>,
+  back: <path d="M9.6 3.8 5.4 8l4.2 4.2M5.4 8h6.8"/>
 };
 function Icon({ name }: { name: IconName }) {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{iconPaths[name]}</svg>;
@@ -220,7 +241,7 @@ function PreviewStage({ settings, status, fps, paused, onPaused, guides, onGuide
 }) {
   return <section className={`stage ${compact ? 'stage-compact' : ''}`}>
     <header className="stage-head">
-      <div className="stage-title"><Icon name="frame"/><h2>Live preview</h2></div>
+      <div className="stage-title"><Icon name="frame"/><h2>Live preview</h2>{settings.miniplayerEnabled && <span className="stage-note">Lyrics in miniplayer</span>}</div>
       <div className="stage-tools">
         <div className="seg" role="group" aria-label="Preview mode">
           <button type="button" className={!settings.lightingOnly ? 'on' : ''} onClick={() => update({ lightingOnly: false })}>Words</button>
@@ -318,6 +339,13 @@ function Studio() {
     void window.echo?.publishPlayback(state);
   };
   useEffect(() => { const id = setInterval(publishPlayback, 120); return () => clearInterval(id); }, [track]);
+  useEffect(() => window.echo?.onPlaybackCommand((command) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (command === 'toggle') { if (audio.paused) void audio.play(); else audio.pause(); }
+    else if (command === 'back') audio.currentTime = Math.max(0, audio.currentTime - 10);
+    else if (command === 'forward') audio.currentTime = Math.min(Number.isFinite(audio.duration) ? audio.duration : audio.currentTime + 10, audio.currentTime + 10);
+  }), []);
   const openLocalAudio = async (file: File) => {
     audioRef.current?.pause();
     if (mediaUrlRef.current) URL.revokeObjectURL(mediaUrlRef.current);
@@ -435,7 +463,7 @@ function Studio() {
           </button>)}
         </nav>
         <div className="status-card">
-          <div className="status-row"><span className={`status-dot ${status.audioCaptureActive ? 'live' : ''}`}/><span>{sourceLabel}</span><span className="status-version">v0.9.7</span></div>
+          <div className="status-row"><span className={`status-dot ${status.audioCaptureActive ? 'live' : ''}`}/><span>{sourceLabel}</span><span className="status-version">v0.9.8</span></div>
           <div className="status-detail">{status.audioCaptureActive ? 'Audio analysis on' : 'Audio analysis off'}</div>
         </div>
       </div>
@@ -487,7 +515,8 @@ function Studio() {
                 <Slider label="Intensity" value={settings.intensity} min={0} max={1} step={.01} unit="%" onChange={(value) => update({ intensity: value })}/>
                 <Slider label="Tempo" value={settings.speed} min={.2} max={2.5} step={.01} unit="×" onChange={(value) => update({ speed: value })}/>
               </Group>
-              <Group title="Overlay">
+              <Group title="Overlay" action={<button type="button" className="link-btn" onClick={() => setSection('Miniplayer')}>Configure</button>}>
+                <Toggle label="Miniplayer" description="Move lyrics into a side panel" checked={settings.miniplayerEnabled} onChange={(value) => update({ miniplayerEnabled: value })}/>
                 <Toggle label="Click-through" description="Keep the desktop fully interactive" checked={settings.clickThrough} onChange={(value) => update({ clickThrough: value })}/>
                 <div className="hint-row"><span>Hide instantly</span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>H</kbd></div>
               </Group>
@@ -551,7 +580,7 @@ function Studio() {
                   <h3>{currentTrackTitle ?? (status.playbackSource === 'system' ? 'Waiting for a media session' : 'No local track loaded')}</h3>
                   <p>{currentTrackArtist ?? (status.playbackSource === 'system' ? 'Play a song in an app that publishes Windows media controls.' : 'Music stays on your device.')}</p>
                   <div className="chip-row">
-                    <span className="tag muted">{status.playbackSource === 'system' ? status.mediaSource || 'Windows media' : 'Local playback'}</span>
+                    <span className="tag muted">{status.playbackSource === 'system' ? sourceName(status.mediaSource) : 'Local playback'}</span>
                     <span className={`tag ${currentPlayback?.playing || playing ? 'ok' : 'muted'}`}>{currentPlayback?.playing || playing ? 'Playing' : 'Paused'}</span>
                   </div>
                 </div>
@@ -715,6 +744,34 @@ function Studio() {
           </div>
         </Page>}
 
+        {section === 'Miniplayer' && <Page title="Miniplayer" subtitle="A compact lyric panel for either edge of the screen.">
+          {stage}
+          <div className="grid-2">
+            <Group title="Panel" action={<span className={`tag ${settings.miniplayerEnabled ? 'ok' : 'muted'}`}>{settings.miniplayerEnabled ? 'On' : 'Off'}</span>}>
+              <Toggle label="Enable miniplayer" description="Move lyric words from the desktop edges into the panel" checked={settings.miniplayerEnabled} onChange={(value) => update({ miniplayerEnabled: value })}/>
+              <div className="field">
+                <label>Side</label>
+                <div className="seg seg-wide" role="group" aria-label="Miniplayer side">
+                  <button type="button" className={settings.miniplayerSide === 'left' ? 'on' : ''} onClick={() => update({ miniplayerSide: 'left' })}>Left</button>
+                  <button type="button" className={settings.miniplayerSide === 'right' ? 'on' : ''} onClick={() => update({ miniplayerSide: 'right' })}>Right</button>
+                </div>
+              </div>
+              <Slider label="Scale" value={settings.miniplayerScale} min={.75} max={1.35} step={.05} unit="%" onChange={(value) => update({ miniplayerScale: value })}/>
+              <p className="hint">While the miniplayer is on, lyric words leave the desktop edges and appear only in the panel. The peripheral light field stays on the desktop.</p>
+            </Group>
+            <Group title="In the panel">
+              <div className="status-list">
+                <div><span>Lyrics</span><b>Word-level highlight</b></div>
+                <div><span>Song details</span><b>Click the title bar</b></div>
+                <div><span>Previous / next</span><b>Windows sessions</b></div>
+                <div><span>Back / forward 10s</span><b>Windows and local</b></div>
+              </div>
+              <p className="hint">The panel stays above other windows and accepts clicks only within its own bounds. Open the title bar for details, transport, side, and size.</p>
+              <p className="hint">{settings.miniplayerEnabled ? `Live on the ${settings.miniplayerSide} edge at ${Math.round(settings.miniplayerScale * 100)}%.` : 'Turn the miniplayer on to place it on screen.'}</p>
+            </Group>
+          </div>
+        </Page>}
+
         {section === 'Placement' && <Page title="Placement" subtitle="Where words may appear and what they must avoid.">
           {stage}
           <div className="grid-2">
@@ -809,7 +866,7 @@ function Studio() {
             </Group>
             <Group title="System" className="span-2">
               <div className="status-list">
-                <div><span>Version</span><b>0.9.7</b></div>
+                <div><span>Version</span><b>0.9.8</b></div>
                 <div><span>Playback source</span><b>{sourceLabel}</b></div>
                 <div><span>Lyrics</span><b>{lyricSummary}</b></div>
                 <div><span>Displays</span><b>{status.displayCount}</b></div>
@@ -823,7 +880,156 @@ function Studio() {
   </div>;
 }
 
-type Section = 'Home' | 'Now Playing' | 'Visual Studio' | 'Typography' | 'Animation' | 'Lighting' | 'Theme' | 'Spatial Audio' | 'Placement' | 'Presets' | 'Performance' | 'General Settings';
+function Miniplayer() {
+  const { settings, status, update } = useSettings();
+  const [playback, setPlayback] = useState<PlaybackState | null>(null);
+  const [lyrics, setLyrics] = useState<TimedLine[]>([]);
+  const [clock, setClock] = useState(0);
+  const [details, setDetails] = useState(false);
+  const receivedAt = useRef(0);
+  const listRef = useRef<HTMLDivElement>(null);
+  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const receive = (state: PlaybackState) => { receivedAt.current = performance.now(); setPlayback(state); };
+    void window.echo?.getPlayback().then(receive);
+    void window.echo?.getLyrics().then(setLyrics);
+    const a = window.echo?.onPlayback(receive);
+    const b = window.echo?.onLyrics(setLyrics);
+    return () => { a?.(); b?.(); };
+  }, []);
+
+  useEffect(() => {
+    const tick = () => setClock(playback?.trackId ? playback.positionMs + (playback.playing ? Math.min(performance.now() - receivedAt.current, 4000) : 0) : 0);
+    tick();
+    const id = setInterval(tick, 120);
+    return () => clearInterval(id);
+  }, [playback]);
+
+  const lyricClock = clock + settings.lyricOffsetMs;
+  let activeIndex = -1;
+  for (let index = 0; index < lyrics.length; index++) if (lyricClock >= lyrics[index].startMs) activeIndex = index;
+  const activeLine = activeIndex >= 0 ? lyrics[activeIndex] : null;
+  const nextLine = activeIndex >= 0 ? lyrics[activeIndex + 1] ?? null : lyrics[0] ?? null;
+
+  useEffect(() => {
+    const container = listRef.current;
+    const line = activeIndex >= 0 ? lineRefs.current[activeIndex] : null;
+    if (!container || !line) return;
+    const top = line.offsetTop - container.clientHeight / 2 + line.clientHeight / 2;
+    container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }, [activeIndex, settings.miniplayerScale, lyrics.length]);
+
+  const title = playback?.title ?? null;
+  const artist = playback?.artist ?? null;
+  const local = status.playbackSource === 'local';
+  const duration = playback?.durationMs ?? 0;
+  const progress = duration > 0 ? clamp((clock / duration) * 100, 0, 100) : 0;
+  const hasTrack = !!playback?.trackId;
+  const command = (value: MediaCommand) => { void window.echo?.mediaControl(value); };
+  const emptyText = !hasTrack ? 'Play something to see its lyrics.'
+    : status.lyricsStatus === 'searching' ? 'Looking up timed lyrics…'
+    : status.lyricsStatus === 'retrying' ? 'Retrying the lyric lookup…'
+    : status.lyricsStatus === 'error' ? 'Lyrics lookup failed.'
+    : lyrics.length ? null
+    : 'No timed lyrics for this track.';
+
+  return <div className="mp-root">
+    <section className="mp-panel" style={{ '--mp-primary': settings.color, '--mp-secondary': settings.secondaryColor, '--mp-scale': settings.miniplayerScale } as CSSProperties}>
+      <header className="mp-head">
+        <BrandMark/>
+        <span className="mp-wordmark">ECHOFRAME</span>
+        <span className={`mp-status ${status.lyricsStatus ?? 'unavailable'}`} aria-hidden="true"/>
+        <button type="button" className="mp-icon-btn" onClick={() => update({ miniplayerEnabled: false })} title="Hide miniplayer" aria-label="Hide miniplayer"><Icon name="close"/></button>
+      </header>
+      <div className="mp-lyrics" ref={listRef} style={{ fontFamily: `"${settings.fontFamily}", Arial, sans-serif`, fontWeight: settings.fontWeight, letterSpacing: `${settings.letterSpacing}px` }}>
+        <div className="mp-lines">
+          {lyrics.length ? lyrics.map((line, index) => {
+            const active = index === activeIndex;
+            const words = line.words?.length ? line.words : null;
+            return <div key={`${index}-${line.startMs}`} ref={(element) => { lineRefs.current[index] = element; }}
+              className={`mp-line ${active ? 'active' : index < activeIndex ? 'past' : ''}`}>
+              {active && words
+                ? words.map((word, wordIndex) => {
+                  const sung = word.startMs <= lyricClock;
+                  const current = sung && (words[wordIndex + 1]?.startMs ?? Infinity) > lyricClock;
+                  return <span key={wordIndex} className={`mp-word ${sung ? 'sung' : ''} ${current ? 'current' : ''}`}>{word.text} </span>;
+                })
+                : <span className="mp-line-text">{line.text}</span>}
+            </div>;
+          }) : <p className="mp-empty">{emptyText}</p>}
+        </div>
+      </div>
+      <button type="button" className="mp-now" onClick={() => setDetails(true)} aria-label="Open song details">
+        <span className="mp-now-copy"><b>{title ?? 'Nothing playing'}</b><span>{artist ?? (local ? 'Local playback' : 'Windows media')}</span></span>
+        <span className="mp-now-chevron"><Icon name="chevron"/></span>
+      </button>
+
+      <div className={`mp-details ${details ? 'open' : ''}`} aria-hidden={!details}>
+        <header className="mp-detail-head">
+          <button type="button" className="mp-icon-btn" onClick={() => setDetails(false)} aria-label="Back to lyrics"><Icon name="back"/></button>
+          <span>Song details</span>
+          <button type="button" className="mp-icon-btn" onClick={() => update({ miniplayerEnabled: false })} aria-label="Hide miniplayer"><Icon name="close"/></button>
+        </header>
+        <div className="mp-detail-body">
+          <div className="mp-track">
+            <span className="mp-art" style={{ background: `linear-gradient(140deg, ${settings.color}, ${settings.secondaryColor})` }}><Icon name="note"/></span>
+            <div className="mp-track-copy">
+              <h2>{title ?? 'Nothing playing'}</h2>
+              <p>{artist ?? (local ? 'Local playback' : 'Start a Windows media session')}</p>
+              {playback?.album && <span>{playback.album}</span>}
+            </div>
+          </div>
+          <div className="mp-meta">
+            <div><span>Source</span><b>{local ? 'Local file' : sourceName(status.mediaSource)}</b></div>
+            <div><span>Lyrics</span><b>{lyricStatusText(status.lyricsStatus)}</b></div>
+            <div><span>Timing</span><b>{lyrics.length ? timingLabel(status.lyricsTiming) : '—'}</b></div>
+            <div><span>Lines / words</span><b>{lyrics.length ? `${lyrics.length} / ${lyrics.reduce((sum, line) => sum + (line.words?.length ?? 0), 0)}` : '—'}</b></div>
+            <div><span>Lyric sync</span><span className="mp-offset">
+              <button type="button" onClick={() => update({ lyricOffsetMs: clamp(settings.lyricOffsetMs - 25, -750, 750) })} aria-label="Lyrics later">−</button>
+              <output>{settings.lyricOffsetMs > 0 ? '+' : ''}{settings.lyricOffsetMs} ms</output>
+              <button type="button" onClick={() => update({ lyricOffsetMs: clamp(settings.lyricOffsetMs + 25, -750, 750) })} aria-label="Lyrics earlier">+</button>
+            </span></div>
+          </div>
+          <div className="mp-progress">
+            <span className="mp-progress-track"><i style={{ width: `${progress}%` }}/></span>
+            <div className="mp-times"><span>{clockText(clock / 1000)}</span><span>{clockText(duration / 1000)}</span></div>
+          </div>
+          <div className="mp-transport">
+            <button type="button" className="mp-tbtn" onClick={() => command('previous')} disabled={local || !hasTrack} aria-label="Previous track" title="Previous track"><Icon name="prev"/></button>
+            <button type="button" className="mp-tbtn mp-seek" onClick={() => command('back')} disabled={!hasTrack} aria-label="Back 10 seconds" title="Back 10 seconds">−10</button>
+            <button type="button" className="mp-play" onClick={() => command('toggle')} disabled={!hasTrack} aria-label={playback?.playing ? 'Pause' : 'Play'} title={playback?.playing ? 'Pause' : 'Play'}>{playback?.playing ? <Icon name="pause"/> : <Icon name="play"/>}</button>
+            <button type="button" className="mp-tbtn mp-seek" onClick={() => command('forward')} disabled={!hasTrack} aria-label="Forward 10 seconds" title="Forward 10 seconds">+10</button>
+            <button type="button" className="mp-tbtn" onClick={() => command('next')} disabled={local || !hasTrack} aria-label="Next track" title="Next track"><Icon name="next"/></button>
+          </div>
+          {local && <p className="mp-note">Track skipping is available for Windows media sessions. Local playback supports play, pause, and ±10 seconds.</p>}
+          {(activeLine || nextLine) && <div className="mp-glimpse" style={{ fontFamily: `"${settings.fontFamily}", Arial, sans-serif`, fontWeight: settings.fontWeight, letterSpacing: `${settings.letterSpacing}px` }}>
+            <span className="mp-glimpse-label">Now</span>
+            <p className="current">{activeLine?.text ?? nextLine?.text}</p>
+            {activeLine && nextLine && <p className="next">{nextLine.text}</p>}
+          </div>}
+          <div className="mp-config">
+            <div className="mp-config-row"><span>Side</span>
+              <div className="mp-seg">
+                <button type="button" className={settings.miniplayerSide === 'left' ? 'on' : ''} onClick={() => update({ miniplayerSide: 'left' })}>Left</button>
+                <button type="button" className={settings.miniplayerSide === 'right' ? 'on' : ''} onClick={() => update({ miniplayerSide: 'right' })}>Right</button>
+              </div>
+            </div>
+            <div className="mp-config-row"><span>Size</span>
+              <div className="mp-stepper">
+                <button type="button" onClick={() => update({ miniplayerScale: Math.max(.75, Math.round((settings.miniplayerScale - .05) * 100) / 100) })} aria-label="Smaller">−</button>
+                <output>{Math.round(settings.miniplayerScale * 100)}%</output>
+                <button type="button" onClick={() => update({ miniplayerScale: Math.min(1.35, Math.round((settings.miniplayerScale + .05) * 100) / 100) })} aria-label="Larger">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>;
+}
+
+type Section = 'Home' | 'Now Playing' | 'Visual Studio' | 'Typography' | 'Animation' | 'Lighting' | 'Theme' | 'Spatial Audio' | 'Miniplayer' | 'Placement' | 'Presets' | 'Performance' | 'General Settings';
 const navGroups: { label?: string; items: { id: Section; label: string; icon: IconName }[] }[] = [
   { items: [{ id: 'Home', label: 'Home', icon: 'home' }, { id: 'Now Playing', label: 'Now playing', icon: 'note' }] },
   { label: 'Design', items: [
@@ -835,7 +1041,8 @@ const navGroups: { label?: string; items: { id: Section; label: string; icon: Ic
   ] },
   { label: 'Spatial', items: [
     { id: 'Placement', label: 'Placement', icon: 'placement' },
-    { id: 'Spatial Audio', label: 'Spatial audio', icon: 'wave' }
+    { id: 'Spatial Audio', label: 'Spatial audio', icon: 'wave' },
+    { id: 'Miniplayer', label: 'Miniplayer', icon: 'panel' }
   ] }
 ];
 const systemNav: { id: Section; label: string; icon: IconName }[] = [
@@ -844,4 +1051,4 @@ const systemNav: { id: Section; label: string; icon: IconName }[] = [
   { id: 'General Settings', label: 'General', icon: 'settings' }
 ];
 
-createRoot(document.getElementById('root')!).render(isOverlay ? <Overlay/> : <Studio/>);
+createRoot(document.getElementById('root')!).render(isOverlay ? <Overlay/> : isMiniplayer ? <Miniplayer/> : <Studio/>);

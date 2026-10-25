@@ -1,7 +1,8 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, nativeImage, type Display } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { AnimationMode, AppSettings, Edge, PlacementMode, PlaybackState, RuntimeStatus, ThemeMode, TimedLine, WordTimingKind } from '../src/types';
+import type { AnimationMode, AppSettings, Edge, MediaCommand, PlacementMode, PlaybackState, RuntimeStatus, ThemeMode, TimedLine, WordTimingKind } from '../src/types';
+import { miniplayerBounds, miniplayerScale } from '../src/miniplayer/layout';
 import { AudioBridge } from './audio';
 import { MediaBridge, type MediaFrame } from './media';
 import { LrclibClient } from './lyricsService';
@@ -16,7 +17,7 @@ const defaults: AppSettings = {
   targetFps: 60, renderScale: 1,
   fontFamily: 'Segoe UI', fontWeight: 800, letterSpacing: 0, outlineWidth: 10, glowStrength: 30,
   lightingOnly: false, lightingEdges: ['top', 'right', 'bottom', 'left'], placementMode: 'Strict Edge', manualExclusion: null,
-  lyricOffsetMs: 0
+  lyricOffsetMs: 0, miniplayerEnabled: false, miniplayerSide: 'right', miniplayerScale: 1
 };
 const edgeValues: Edge[] = ['top', 'right', 'bottom', 'left'];
 const presets = ['Ethereal', 'Neon Depth', 'Minimal', 'Kinetic', 'Ambient', 'Spatial'];
@@ -26,6 +27,7 @@ const fontFamilies = ['Segoe UI', 'Arial', 'Georgia', 'Consolas', 'Impact'];
 const placementModes: PlacementMode[] = ['Strict Edge', 'Dynamic Edge', 'Immersive'];
 let settings = { ...defaults };
 let studio: BrowserWindow | null = null;
+let miniplayer: BrowserWindow | null = null;
 let overlays = new Map<number, BrowserWindow>();
 let tray: Tray | null = null;
 let lastError = '';
@@ -88,7 +90,10 @@ function validate(input: Partial<AppSettings>): AppSettings {
       x: clamp(input.manualExclusion.x, .3, 0, 1), y: clamp(input.manualExclusion.y, .3, 0, 1),
       width: clamp(input.manualExclusion.width, .2, .01, 1), height: clamp(input.manualExclusion.height, .2, .01, 1)
     } : null,
-    lyricOffsetMs: Math.round(clamp(input.lyricOffsetMs, 0, -750, 750) / 25) * 25
+    lyricOffsetMs: Math.round(clamp(input.lyricOffsetMs, 0, -750, 750) / 25) * 25,
+    miniplayerEnabled: typeof input.miniplayerEnabled === 'boolean' ? input.miniplayerEnabled : defaults.miniplayerEnabled,
+    miniplayerSide: input.miniplayerSide === 'left' || input.miniplayerSide === 'right' ? input.miniplayerSide : defaults.miniplayerSide,
+    miniplayerScale: Math.round(miniplayerScale(clamp(input.miniplayerScale, defaults.miniplayerScale, 0, 5)) * 100) / 100
   };
 }
 function loadSettings() {
@@ -101,7 +106,7 @@ function persistSettings() {
   try { writeFileSync(configPath(), JSON.stringify(settings, null, 2), 'utf8'); }
   catch (error) { lastError = `Could not save settings: ${String(error)}`; broadcastStatus(); }
 }
-function page(window: BrowserWindow, view: 'studio' | 'overlay') {
+function page(window: BrowserWindow, view: 'studio' | 'overlay' | 'miniplayer') {
   if (app.isPackaged) void window.loadFile(path.join(__dirname, '../../dist/index.html'), { query: { view } });
   else void window.loadURL(`http://127.0.0.1:5173/?view=${view}`);
 }
@@ -114,6 +119,7 @@ function status(): RuntimeStatus {
 }
 function broadcastPlayback() {
   studio?.webContents.send('playback:changed', playback);
+  miniplayer?.webContents.send('playback:changed', playback);
   overlays.forEach((window) => window.webContents.send('playback:changed', playback));
 }
 function setLyrics(lines: TimedLine[], state: RuntimeStatus['lyricsStatus'], timing: WordTimingKind = 'none') {
@@ -121,6 +127,7 @@ function setLyrics(lines: TimedLine[], state: RuntimeStatus['lyricsStatus'], tim
   lyricsStatus = state;
   lyricsTiming = timing;
   studio?.webContents.send('lyrics:changed', lyrics);
+  miniplayer?.webContents.send('lyrics:changed', lyrics);
   overlays.forEach((window) => window.webContents.send('lyrics:changed', lyrics));
   broadcastStatus();
 }
@@ -162,15 +169,17 @@ function applyMedia(frame: MediaFrame) {
   if (playbackSource !== 'system') return;
   mediaSource = frame.source;
   const trackId = frame.title ? `windows:${frame.source}:${frame.title}:${frame.artist}` : null;
-  const next: PlaybackState = { trackId, title: frame.title || null, artist: frame.artist || null,
+  const next: PlaybackState = { trackId, title: frame.title || null, artist: frame.artist || null, album: frame.album || null,
     positionMs: frame.positionMs, durationMs: frame.durationMs, playing: frame.playing };
   setPlayback(next);
 }
 function broadcastStatus() {
   studio?.webContents.send('status:changed', status());
+  miniplayer?.webContents.send('status:changed', status());
 }
 function broadcastSettings() {
   if (studio) sendSettings(studio);
+  if (miniplayer) sendSettings(miniplayer);
   overlays.forEach(sendSettings);
   broadcastStatus();
 }
@@ -178,6 +187,7 @@ function setVisibility(visible: boolean) {
   settings.overlayEnabled = visible;
   persistSettings();
   overlays.forEach((window) => { if (visible) window.showInactive(); else window.hide(); });
+  syncMiniplayer();
   broadcastSettings();
   updateTray();
 }
@@ -205,6 +215,47 @@ function createOverlay(monitor: Display) {
   page(window, 'overlay');
   overlays.set(monitor.id, window);
 }
+function miniplayerTargetBounds() {
+  return miniplayerBounds(screen.getPrimaryDisplay().workArea, settings.miniplayerSide, settings.miniplayerScale);
+}
+function createMiniplayer() {
+  const bounds = miniplayerTargetBounds();
+  miniplayer = new BrowserWindow({
+    x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
+    frame: false, transparent: true, backgroundColor: '#00000000',
+    show: false, skipTaskbar: true, hasShadow: false,
+    alwaysOnTop: true, resizable: false, movable: false,
+    title: 'ECHOFRAME Miniplayer',
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
+  });
+  miniplayer.setAlwaysOnTop(true, 'floating');
+  miniplayer.webContents.on('render-process-gone', (_event, details) => {
+    lastError = `Miniplayer renderer stopped (${details.reason}). Restarting it.`;
+    broadcastStatus();
+    if (miniplayer && !miniplayer.isDestroyed()) page(miniplayer, 'miniplayer');
+  });
+  miniplayer.webContents.on('did-fail-load', (_event, code, description) => {
+    lastError = `Miniplayer failed to load (${code}): ${description}`;
+    broadcastStatus();
+  });
+  miniplayer.once('ready-to-show', () => { if (settings.miniplayerEnabled && settings.overlayEnabled) miniplayer?.showInactive(); });
+  miniplayer.on('closed', () => { miniplayer = null; });
+  page(miniplayer, 'miniplayer');
+}
+function syncMiniplayer() {
+  if (!settings.miniplayerEnabled) {
+    const window = miniplayer;
+    miniplayer = null;
+    if (window && !window.isDestroyed()) window.destroy();
+    return;
+  }
+  const bounds = miniplayerTargetBounds();
+  if (!miniplayer || miniplayer.isDestroyed()) createMiniplayer();
+  else miniplayer.setBounds(bounds, false);
+  if (!miniplayer) return;
+  if (settings.overlayEnabled) miniplayer.showInactive();
+  else miniplayer.hide();
+}
 function reconcileDisplays() {
   const displays = screen.getAllDisplays();
   const ids = new Set(displays.map((d) => d.id));
@@ -216,6 +267,7 @@ function reconcileDisplays() {
     if (!window) createOverlay(monitor);
     else window.setBounds(monitor.bounds, false);
   }
+  syncMiniplayer();
   broadcastStatus();
 }
 function createStudio() {
@@ -273,6 +325,16 @@ app.whenReady().then(() => {
   mediaBridge.onError = (error) => { lastError = error; broadcastStatus(); };
   mediaBridge.start();
   ipcMain.handle('audio:devices', () => audioBridge.listDevices());
+  ipcMain.handle('media:control', (event, command: MediaCommand) => {
+    if (event.sender !== studio?.webContents && event.sender !== miniplayer?.webContents) return false;
+    if (command !== 'toggle' && command !== 'previous' && command !== 'next' && command !== 'back' && command !== 'forward') return false;
+    if (playbackSource === 'local') {
+      if (!studio || studio.isDestroyed()) return false;
+      studio.webContents.send('playback:command', command);
+      return true;
+    }
+    return mediaBridge.send(command);
+  });
   ipcMain.handle('playback:get', () => playback);
   ipcMain.handle('lyrics:get', () => lyrics);
   ipcMain.handle('playback:source', (event, source: 'system' | 'local') => {
@@ -315,6 +377,7 @@ app.whenReady().then(() => {
       window.setIgnoreMouseEvents(settings.clickThrough, { forward: true });
       if (settings.overlayEnabled) window.showInactive(); else window.hide();
     });
+    syncMiniplayer();
     broadcastSettings(); updateTray();
     return settings;
   });

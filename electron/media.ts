@@ -14,8 +14,7 @@ export class MediaBridge {
   private buffer = '';
   onFrame?: (frame: MediaFrame) => void;
   onError?: (error: string) => void;
-  start() {
-    if (this.child) return;
+  start() {    if (this.child) return;
     const child = spawn(helperPath(), ['--media-watch'], { windowsHide: true, stdio: 'pipe' });
     this.child = child;
     this.buffer = '';
@@ -33,6 +32,12 @@ export class MediaBridge {
     child.stderr.on('data', (data: Buffer) => { stderr = (stderr + data.toString('utf8')).slice(-300); });
     child.on('error', (error) => { if (this.child === child) { this.child = null; this.onError?.(error.message); } });
     child.on('close', (code) => { if (this.child === child) { this.child = null; this.onError?.(`Windows media detection stopped (${code ?? 'unknown'}): ${stderr}`); } });
+  }
+  send(command: 'toggle' | 'previous' | 'next' | 'back' | 'forward'): boolean {
+    const child = this.child;
+    if (!child?.stdin.writable) return false;
+    try { child.stdin.write(`${command}\n`); return true; }
+    catch { return false; }
   }
   stop() {
     const child = this.child;

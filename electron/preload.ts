@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { AppSettings, AudioFeatures, EchoAPI, PlaybackState, RuntimeStatus, TimedLine, WordTimingKind } from '../src/types';
+import type { AppSettings, AudioFeatures, EchoAPI, MediaCommand, PlaybackState, RuntimeStatus, TimedLine, WordTimingKind } from '../src/types';
 
 const api: EchoAPI = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
@@ -27,6 +27,12 @@ const api: EchoAPI = {
   setPlaybackSource: (source: 'system' | 'local') => ipcRenderer.invoke('playback:source', source),
   getPlayback: () => ipcRenderer.invoke('playback:get'),
   getLyrics: () => ipcRenderer.invoke('lyrics:get'),
+  mediaControl: (command: MediaCommand) => ipcRenderer.invoke('media:control', command),
+  onPlaybackCommand(callback: (command: MediaCommand) => void) {
+    const listener = (_event: Electron.IpcRendererEvent, command: MediaCommand) => callback(command);
+    ipcRenderer.on('playback:command', listener);
+    return () => ipcRenderer.removeListener('playback:command', listener);
+  },
   onPlayback(callback: (state: PlaybackState) => void) {
     const listener = (_event: Electron.IpcRendererEvent, value: PlaybackState) => callback(value);
     ipcRenderer.on('playback:changed', listener);

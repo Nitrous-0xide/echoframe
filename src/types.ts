@@ -3,6 +3,8 @@ export type Preset = 'Ethereal' | 'Neon Depth' | 'Minimal' | 'Kinetic' | 'Ambien
 export type AnimationMode = 'Float' | 'Bounce' | 'Pop' | 'Orbit' | 'Drift' | 'Depth Shift' | 'Scatter' | 'Echo' | 'Wave' | 'Cinematic';
 export type ThemeMode = 'Album Adaptive' | 'Monochrome' | 'Gradient' | 'Custom Palette' | 'Rainbow' | 'Dynamic Audio Colour';
 export type PlacementMode = 'Strict Edge' | 'Dynamic Edge' | 'Immersive';
+export type MiniplayerSide = 'left' | 'right';
+export type MediaCommand = 'toggle' | 'previous' | 'next' | 'back' | 'forward';
 export interface AppSettings {
   overlayEnabled: boolean;
   color: string;
@@ -38,6 +40,9 @@ export interface AppSettings {
   placementMode: PlacementMode;
   manualExclusion: { x: number; y: number; width: number; height: number } | null;
   lyricOffsetMs: number;
+  miniplayerEnabled: boolean;
+  miniplayerSide: MiniplayerSide;
+  miniplayerScale: number;
 }
 export interface AudioFeatures {
   timestampMs: number; leftRms: number; rightRms: number; balance: number;
@@ -48,7 +53,7 @@ export interface AudioDevice { id: string; name: string }
 export interface TimedWord { text: string; startMs: number; endMs: number; confidence?: number; emphasis?: number }
 export interface TimedLine { text: string; startMs: number; endMs: number; words?: TimedWord[] }
 export type WordTimingKind = 'word' | 'estimated' | 'mixed' | 'none';
-export interface PlaybackState { trackId: string | null; title: string | null; artist: string | null; positionMs: number; durationMs: number; playing: boolean }
+export interface PlaybackState { trackId: string | null; title: string | null; artist: string | null; album?: string | null; positionMs: number; durationMs: number; playing: boolean }
 export interface RuntimeStatus { overlayVisible: boolean; displayCount: number; gpu: string; audioCaptureActive?: boolean; cpuPercent?: number; audioLatencyMs?: number; error?: string; playbackSource?: 'system' | 'local'; lyricsStatus?: 'searching' | 'retrying' | 'synced' | 'unavailable' | 'error' | 'local'; lyricsTiming?: WordTimingKind; mediaSource?: string }
 export interface EchoAPI {
   getSettings(): Promise<AppSettings>;
@@ -66,6 +71,8 @@ export interface EchoAPI {
   getLyrics(): Promise<TimedLine[]>;
   onPlayback(callback: (state: PlaybackState) => void): () => void;
   onLyrics(callback: (lines: TimedLine[]) => void): () => void;
+  mediaControl(command: MediaCommand): Promise<boolean>;
+  onPlaybackCommand(callback: (command: MediaCommand) => void): () => void;
 }
 declare global { interface Window { echo?: EchoAPI } }
 
@@ -96,5 +103,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   renderScale: 1,
   fontFamily: 'Segoe UI', fontWeight: 800, letterSpacing: 0, outlineWidth: 10, glowStrength: 30,
   lightingOnly: false, lightingEdges: ['top', 'right', 'bottom', 'left'], placementMode: 'Strict Edge', manualExclusion: null,
-  lyricOffsetMs: 0
+  lyricOffsetMs: 0, miniplayerEnabled: false, miniplayerSide: 'right', miniplayerScale: 1
 };

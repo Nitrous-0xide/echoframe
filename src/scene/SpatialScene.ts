@@ -121,7 +121,8 @@ export class SpatialScene {
     const changedPlacement = settings.safeZone !== this.settings.safeZone || settings.wordSize !== this.settings.wordSize || settings.enabledEdges.join() !== this.settings.enabledEdges.join() ||
       settings.placementMode !== this.settings.placementMode || JSON.stringify(settings.manualExclusion) !== JSON.stringify(this.settings.manualExclusion) ||
       settings.fontFamily !== this.settings.fontFamily || settings.fontWeight !== this.settings.fontWeight || settings.letterSpacing !== this.settings.letterSpacing ||
-      settings.outlineWidth !== this.settings.outlineWidth || settings.glowStrength !== this.settings.glowStrength || settings.lightingOnly !== this.settings.lightingOnly;
+      settings.outlineWidth !== this.settings.outlineWidth || settings.glowStrength !== this.settings.glowStrength || settings.lightingOnly !== this.settings.lightingOnly ||
+      settings.miniplayerEnabled !== this.settings.miniplayerEnabled;
     const changedScale = settings.renderScale !== this.settings.renderScale;
     this.settings = settings;
     if (changedScale) { this.effectiveRenderScale = settings.renderScale; this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * this.effectiveRenderScale); this.renderer.setSize(this.width, this.height, false); }
@@ -252,8 +253,8 @@ export class SpatialScene {
       this.renderer.setSize(this.width, this.height, false);
       this.slowSeconds = 0;
     }
-    if (this.settings.lightingOnly) {
-      // The lighting field continues; no lyric objects are created.
+    if (this.settings.lightingOnly || this.settings.miniplayerEnabled) {
+      // The lighting field continues; lyrics live in the miniplayer instead.
     } else if (this.playback?.trackId) {
       if (this.playback.playing) {
         // Extrapolate from the last reported frame, but never run away from a stalled bridge.

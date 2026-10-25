@@ -17,12 +17,13 @@ Everything else is there to shape that atmosphere: typography, motion, colour, a
 - **Made for the desktop.** Transparent per-monitor overlays stay on top, ignore the mouse, and leave the protected centre empty. Hide everything with one shortcut.
 - **Reactive but local.** Optional WASAPI loopback analysis drives the light field and motion. Audio never leaves the machine.
 - **A real studio.** Six starting presets, saved looks, versioned JSON import/export, ten motion behaviours, three placement modes, artwork-derived palettes, and a performance panel.
+- **A miniplayer when you want one.** An optional tall panel on either edge collapses the lyrics into a single readable column, with song details and transport a click away.
 
 ![Words continuing to flow around the desktop](docs/media/overlay-wordflow.gif)
 
 ## Install
 
-Download **[ECHOFRAME 0.9.7](https://github.com/Nitrous-0xide/echoframe/releases/latest)** for Windows 10/11 x64.
+Download **[ECHOFRAME 0.9.8](https://github.com/Nitrous-0xide/echoframe/releases/latest)** for Windows 10/11 x64.
 
 The installer is unsigned, so Windows SmartScreen may ask you to confirm before running it. There is no account, telemetry, or background updater.
 
@@ -46,13 +47,23 @@ The tray icon reopens the studio or hides the overlay. Closing the studio leaves
 |:---:|:---:|
 | ![Presets and placement controls](docs/media/studio-visual.png) | ![Typeface, scale, and material controls](docs/media/studio-typography.png) |
 
+## Miniplayer
+
+An optional second surface for the same word-level lyrics. Turn it on and the desktop edge words collapse into a tall panel on either side of the primary display; the peripheral light field stays where it is.
+
+| Lyrics | Song details |
+|:---:|:---:|
+| ![Miniplayer with the active lyric line](docs/media/miniplayer.png) | ![Song details and transport](docs/media/miniplayer-details.png) |
+
+Turn it on from the Home inspector or the **Miniplayer** page. Scale the panel from that page or from its own details card. Previous and next tracks go through the Windows media session; play/pause and ±10 seconds also work for local playback. The title bar opens song details, progress, transport, side, and size. When the panel is on, the edge lyrics are hidden, so the whole lyric stream lives in one place.
+
 ## How it works
 
-
-- `electron/media.ts` and `native/EchoAudio/MediaWatcher.cs` read the Windows Global System Media Transport Controls session and report identity plus playback position.
+- `electron/media.ts` and `native/EchoAudio/MediaWatcher.cs` read the Windows Global System Media Transport Controls session and report identity plus playback position. The same helper accepts previous, next, play/pause, and ±10 second commands from the studio or miniplayer.
 - `electron/lyricsService.ts` matches LRCLIB records strictly by title, artist, and duration, spaces requests, follows rate-limit responses, caches results, and retries temporary failures.
 - `src/lyrics/` parses standard and enhanced LRC, Lyricsfile word timestamps, and estimates pacing for line-only lyrics. `displayEvents.ts` turns lines into individual, ordered word events.
 - `src/scene/` contains the Three.js scene, the peripheral placement engine, and the lighting field. The studio preview runs the same scene as the overlay.
+- `electron/main.ts` owns a separate frameless miniplayer window. `src/miniplayer/layout.ts` keeps its bounds on either edge, and the renderer paints a lyric column from the same timed data and sync offset as the overlay.
 - `native/EchoAudio/` is a small .NET 9 + NAudio helper that computes stereo and frequency features from an opt-in WASAPI loopback stream. Only features cross the process pipe.
 
 ## Lyric timing
@@ -95,7 +106,7 @@ npm run check
 npm run build
 ```
 
-The installer is written to `release/ECHOFRAME Setup 0.9.7.exe`. It is unsigned.
+The installer is written to `release/ECHOFRAME Setup 0.9.8.exe`. It is unsigned.
 
 ### Development notes
 
@@ -113,7 +124,8 @@ native/EchoAudio/         .NET 9 WASAPI loopback helper and media watcher
 src/lyrics/               LRC, Lyricsfile, word timing, display events
 src/scene/                Three.js scene, placement engine, lighting
 src/theme/                Artwork palette extraction and theme colours
-src/main.tsx              Studio and overlay UI
+src/miniplayer/           Miniplayer panel geometry
+src/main.tsx              Studio, overlay, and miniplayer UI
 tests/                    Unit tests and Electron smoke tests
 docs/PROVIDERS.md         Playback and lyrics provider boundaries
 docs/media/               README images and GIFs
@@ -129,14 +141,17 @@ docs/media/               README images and GIFs
 
 The tray menu also opens the studio, toggles the overlay, and quits.
 
+Inside the miniplayer, the title bar opens song details, transport, side, and size. When the miniplayer is enabled, lyric words leave the desktop edges and appear in the panel; the overlay's light field stays.
+
 ## Status and limits
 
-ECHOFRAME 0.9.7 is an unsigned Windows preview. The following are known limits rather than hidden behaviour:
+ECHOFRAME 0.9.8 is an unsigned Windows preview. The following are known limits rather than hidden behaviour:
 
 - Windows only. Media detection depends on the player publishing metadata and a timeline to the system; some players do not.
 - Some tracks have no timed lyrics on LRCLIB. Playback continues without words in that case.
 - Line-only lyrics use estimated word pacing, which can drift from sustained or unusually phrased vocals.
 - Live capture, click-through, and multi-monitor hotplug still deserve hands-on testing on each target setup.
+- The miniplayer appears on the primary display. Track skipping depends on the player implementing Windows transport controls; local playback supports only play/pause and ±10 seconds.
 - No source separation, licensed commercial lyrics provider, content-aware window avoidance, multiple exclusion regions, MSDF text, code signing, or automatic updates.
 - The installer is unsigned and may trigger SmartScreen.
 

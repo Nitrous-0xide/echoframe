@@ -9,17 +9,26 @@ internal static class MediaWatcher
         {
             var manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
             using var stop = new CancellationTokenSource();
-            _ = Task.Run(() => { Console.ReadLine(); stop.Cancel(); });
+            _ = Task.Run(async () =>
+            {
+                while (true)
+                {
+                    var line = await Console.In.ReadLineAsync();
+                    if (line is null) break;
+                    var command = line.Trim().ToLowerInvariant();
+                    if (command == "stop") { stop.Cancel(); break; }
+                    if (command is not ("next" or "previous" or "toggle" or "back" or "forward")) continue;
+                    try { await Control(manager, command); }
+                    catch (Exception error) { Console.Error.WriteLine(error.Message); }
+                }
+            });
             string? lastIdentity = null;
             long lastPosition = -1;
             while (!stop.IsCancellationRequested)
             {
                 try
                 {
-                    var sessions = manager.GetSessions().ToArray();
-                    var session = sessions.FirstOrDefault(s => s.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
-                        ?? sessions.FirstOrDefault(s => s == manager.GetCurrentSession())
-                        ?? sessions.FirstOrDefault();
+                    var session = Active(manager);
                     object state;
                     bool playing;
                     if (session is null)
@@ -32,9 +41,7 @@ internal static class MediaWatcher
                         var media = await session.TryGetMediaPropertiesAsync();
                         var timeline = session.GetTimelineProperties();
                         playing = session.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-                        var position = timeline.Position.TotalMilliseconds;
-                        if (playing && timeline.LastUpdatedTime.Year > 2000)
-                            position += Math.Clamp((DateTimeOffset.UtcNow - timeline.LastUpdatedTime).TotalMilliseconds, 0, 10000);
+                        var position = Position(timeline, playing);
                         state = new
                         {
                             source = session.SourceAppUserModelId,
@@ -67,6 +74,42 @@ internal static class MediaWatcher
         {
             Console.Error.WriteLine(error.Message);
             return 1;
+        }
+    }
+
+    private static GlobalSystemMediaTransportControlsSession? Active(GlobalSystemMediaTransportControlsSessionManager manager)
+    {
+        var sessions = manager.GetSessions().ToArray();
+        return sessions.FirstOrDefault(s => s.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+            ?? sessions.FirstOrDefault(s => s == manager.GetCurrentSession())
+            ?? sessions.FirstOrDefault();
+    }
+
+    private static double Position(Windows.Media.Control.GlobalSystemMediaTransportControlsSessionTimelineProperties timeline, bool playing)
+    {
+        var position = timeline.Position.TotalMilliseconds;
+        if (playing && timeline.LastUpdatedTime.Year > 2000)
+            position += Math.Clamp((DateTimeOffset.UtcNow - timeline.LastUpdatedTime).TotalMilliseconds, 0, 10000);
+        return position;
+    }
+
+    private static async Task Control(GlobalSystemMediaTransportControlsSessionManager manager, string command)
+    {
+        var session = Active(manager);
+        if (session is null) return;
+        switch (command)
+        {
+            case "next": await session.TrySkipNextAsync(); break;
+            case "previous": await session.TrySkipPreviousAsync(); break;
+            case "toggle": await session.TryTogglePlayPauseAsync(); break;
+            case "back":
+            case "forward":
+                var timeline = session.GetTimelineProperties();
+                var playing = session.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+                var duration = Math.Max(0, (timeline.EndTime - timeline.StartTime).TotalMilliseconds);
+                var target = Math.Clamp(Position(timeline, playing) + (command == "forward" ? 10000 : -10000), 0, duration);
+                await session.TryChangePlaybackPositionAsync(TimeSpan.FromMilliseconds(target).Ticks);
+                break;
         }
     }
 }

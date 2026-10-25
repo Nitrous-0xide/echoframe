@@ -6,7 +6,7 @@ import type { TimedLine, WordTimingKind } from '../src/types';
 interface RecordData { trackName?: unknown; artistName?: unknown; duration?: unknown; instrumental?: unknown; syncedLyrics?: unknown; lyricsfile?: unknown }
 export interface LookupTrack { title: string; artist: string; album?: string; durationMs: number }
 export interface LyricsResult { lines: TimedLine[]; available: boolean; timing: WordTimingKind }
-const client = 'ECHOFRAME/0.9.7 (Windows desktop app)';
+const client = 'ECHOFRAME/0.9.8 (Windows desktop app)';
 const normalize = (s: string) => s.toLocaleLowerCase().normalize('NFKD').replace(/\p{Diacritic}/gu, '').replace(/[^a-z0-9]+/g, ' ').trim();
 function valid(record: RecordData, track: LookupTrack) {
   if (!normalize(track.title) || !normalize(track.artist)) return false;

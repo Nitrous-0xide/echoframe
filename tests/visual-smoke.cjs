@@ -47,6 +47,17 @@ app.whenReady().then(async () => {
     await clickNav(window, 'Spatial audio');
     await shot(window, 'studio-audio.png');
 
+    await clickNav(window, 'Miniplayer');
+    const miniText = await window.webContents.executeJavaScript('document.body.innerText');
+    if (!miniText.includes('Enable miniplayer') || !miniText.includes('Scale')) throw new Error('Miniplayer controls are missing');
+    await window.webContents.executeJavaScript(`[...document.querySelectorAll('.switch-row')].find((row) => row.textContent.includes('Enable miniplayer'))?.querySelector('input')?.click()`);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const miniOn = await window.webContents.executeJavaScript('document.body.innerText');
+    if (!miniOn.includes('Lyrics in miniplayer')) throw new Error('Miniplayer toggle did not collapse the preview lyrics');
+    await window.webContents.executeJavaScript(`[...document.querySelectorAll('.switch-row')].find((row) => row.textContent.includes('Enable miniplayer'))?.querySelector('input')?.click()`);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await shot(window, 'studio-miniplayer.png');
+
     window.setSize(1000, 680);
     await clickNav(window, 'Home');
     await new Promise((resolve) => setTimeout(resolve, 900));
