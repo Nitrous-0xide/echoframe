@@ -4,6 +4,7 @@ export type AnimationMode = 'Float' | 'Bounce' | 'Pop' | 'Orbit' | 'Drift' | 'De
 export type ThemeMode = 'Album Adaptive' | 'Monochrome' | 'Gradient' | 'Custom Palette' | 'Rainbow' | 'Dynamic Audio Colour';
 export type PlacementMode = 'Strict Edge' | 'Dynamic Edge' | 'Immersive';
 export type MiniplayerSide = 'left' | 'right';
+export type MiniplayerBounceStyle = 'soft' | 'pop' | 'spring' | 'tilt';
 export type MediaCommand = 'toggle' | 'previous' | 'next' | 'back' | 'forward';
 export interface AppSettings {
   overlayEnabled: boolean;
@@ -46,6 +47,12 @@ export interface AppSettings {
   miniplayerOpacity: number;
   miniplayerX: number | null;
   miniplayerY: number | null;
+  miniplayerBounce: boolean;
+  miniplayerBounceStyle: MiniplayerBounceStyle;
+  miniplayerBounceSpeed: number;
+  uiAnimations: boolean;
+  uiAnimationSpeed: number;
+  keybinds: Record<string, string>;
 }
 export interface AudioFeatures {
   timestampMs: number; leftRms: number; rightRms: number; balance: number;
@@ -57,7 +64,7 @@ export interface TimedWord { text: string; startMs: number; endMs: number; confi
 export interface TimedLine { text: string; startMs: number; endMs: number; words?: TimedWord[] }
 export type WordTimingKind = 'word' | 'estimated' | 'mixed' | 'none';
 export interface PlaybackState { trackId: string | null; title: string | null; artist: string | null; album?: string | null; positionMs: number; durationMs: number; playing: boolean }
-export interface RuntimeStatus { overlayVisible: boolean; displayCount: number; gpu: string; audioCaptureActive?: boolean; cpuPercent?: number; audioLatencyMs?: number; error?: string; playbackSource?: 'system' | 'local'; lyricsStatus?: 'searching' | 'retrying' | 'synced' | 'unavailable' | 'error' | 'local'; lyricsTiming?: WordTimingKind; mediaSource?: string }
+export interface RuntimeStatus { overlayVisible: boolean; displayCount: number; gpu: string; audioCaptureActive?: boolean; cpuPercent?: number; audioLatencyMs?: number; error?: string; playbackSource?: 'system' | 'local'; lyricsStatus?: 'searching' | 'retrying' | 'synced' | 'unavailable' | 'error' | 'local'; lyricsTiming?: WordTimingKind; mediaSource?: string; shortcutIssues?: string[] }
 export interface EchoAPI {
   getSettings(): Promise<AppSettings>;
   saveSettings(patch: Partial<AppSettings>): Promise<AppSettings>;
@@ -76,6 +83,7 @@ export interface EchoAPI {
   onLyrics(callback: (lines: TimedLine[]) => void): () => void;
   mediaControl(command: MediaCommand): Promise<boolean>;
   onPlaybackCommand(callback: (command: MediaCommand) => void): () => void;
+  setKeybindCapture(active: boolean): Promise<void>;
 }
 declare global { interface Window { echo?: EchoAPI } }
 
@@ -107,5 +115,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   fontFamily: 'Segoe UI', fontWeight: 800, letterSpacing: 0, outlineWidth: 10, glowStrength: 30,
   lightingOnly: false, lightingEdges: ['top', 'right', 'bottom', 'left'], placementMode: 'Strict Edge', manualExclusion: null,
   lyricOffsetMs: 0, miniplayerEnabled: false, miniplayerSide: 'right', miniplayerScale: 1,
-  miniplayerOpacity: .94, miniplayerX: null, miniplayerY: null
+  miniplayerOpacity: .94, miniplayerX: null, miniplayerY: null,
+  miniplayerBounce: true, miniplayerBounceStyle: 'soft', miniplayerBounceSpeed: 1,
+  uiAnimations: true, uiAnimationSpeed: 1,
+  keybinds: { overlayEnabled: 'Ctrl+Alt+Shift+O' }
 };

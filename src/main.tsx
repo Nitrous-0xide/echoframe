@@ -4,7 +4,8 @@ import { SpatialScene } from './scene/SpatialScene';
 import { parseLrc } from './lyrics/lrc';
 import { withWordTiming } from './lyrics/wordTiming';
 import { paletteFromArtwork, type Palette } from './theme/palette';
-import { DEFAULT_SETTINGS, type AnimationMode, type AppSettings, type AudioDevice, type AudioFeatures, type Edge, type MediaCommand, type PlaybackState, type Preset, type RuntimeStatus, type ThemeMode, type TimedLine, type WordTimingKind } from './types';
+import { DEFAULT_SETTINGS, type AnimationMode, type AppSettings, type AudioDevice, type AudioFeatures, type Edge, type MediaCommand, type MiniplayerBounceStyle, type PlaybackState, type Preset, type RuntimeStatus, type ThemeMode, type TimedLine, type WordTimingKind } from './types';
+import { acceleratorFromEvent, acceleratorParts, TOGGLE_ACTIONS, type ToggleActionId } from './keybinds';
 import './style.css';
 
 const view = new URLSearchParams(location.search).get('view');
@@ -36,6 +37,14 @@ const animationBlurbs: Record<AnimationMode, string> = {
 const themeModes: ThemeMode[] = ['Album Adaptive', 'Monochrome', 'Gradient', 'Custom Palette', 'Rainbow', 'Dynamic Audio Colour'];
 const fontFamilies: AppSettings['fontFamily'][] = ['Segoe UI', 'Arial', 'Georgia', 'Consolas', 'Impact'];
 const placementModes: AppSettings['placementMode'][] = ['Strict Edge', 'Dynamic Edge', 'Immersive'];
+const bounceOptions: { value: MiniplayerBounceStyle; label: string }[] = [
+  { value: 'soft', label: 'Soft lift' }, { value: 'pop', label: 'Pop' },
+  { value: 'spring', label: 'Spring' }, { value: 'tilt', label: 'Tilt' }
+];
+const bounceBlurbs: Record<MiniplayerBounceStyle, string> = {
+  soft: 'A gentle lift and settle', pop: 'A quick scale pulse',
+  spring: 'An overshoot and settle', tilt: 'A short rocking turn'
+};
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 function timingLabel(timing?: WordTimingKind) {
   return timing === 'word' ? 'recorded word timing' : timing === 'estimated' ? 'estimated word timing' : timing === 'mixed' ? 'mixed recorded and estimated' : 'line timing';
@@ -61,7 +70,7 @@ function lyricStatusText(state?: RuntimeStatus['lyricsStatus']) {
 }
 
 /* Icons: one stroke family, 16px grid, used everywhere in the interface. */
-type IconName = 'home' | 'note' | 'frame' | 'type' | 'motion' | 'light' | 'theme' | 'wave' | 'placement' | 'preset' | 'gauge' | 'settings' | 'play' | 'pause' | 'plus' | 'minus' | 'chevron' | 'guides' | 'copy' | 'upload' | 'download' | 'panel' | 'prev' | 'next' | 'close' | 'back' | 'info';
+type IconName = 'home' | 'note' | 'frame' | 'type' | 'motion' | 'light' | 'theme' | 'wave' | 'placement' | 'preset' | 'gauge' | 'settings' | 'play' | 'pause' | 'plus' | 'minus' | 'chevron' | 'guides' | 'copy' | 'upload' | 'download' | 'panel' | 'prev' | 'next' | 'close' | 'back' | 'info' | 'keyboard';
 const iconPaths: Record<IconName, ReactNode> = {
   home: <><path d="M2.8 7.3 8 2.9l5.2 4.4v5.5c0 .5-.4.9-.9.9H3.7c-.5 0-.9-.4-.9-.9z"/><path d="M6.4 13.6V9.5h3.2v4.1"/></>,
   note: <><circle cx="5.3" cy="11.3" r="1.9"/><path d="M7.2 11.3V4.2l4.5-1.1v6.2"/><circle cx="9.8" cy="10.3" r="1.9"/></>,
@@ -86,6 +95,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   download: <><path d="M8 2.6v7.6M5.2 7.4 8 10.2l2.8-2.8"/><path d="M2.8 10.4v2.2c0 .4.3.8.8.8h8.8c.5 0 .8-.4.8-.8v-2.2"/></>,
   panel: <><rect x="4.3" y="2.4" width="7.4" height="11.2" rx="1.5"/><path d="M6.2 5.5h3.6M6.2 7.7h3.6M6.2 9.9h2.3"/></>,
   info: <><circle cx="8" cy="8" r="5.6"/><path d="M8 7.2v3.5"/><circle cx="8" cy="5.1" r=".65" fill="currentColor" stroke="none"/></>,
+  keyboard: <><rect x="2.2" y="4.3" width="11.6" height="7.4" rx="1.5"/><path d="M4.6 6.6h.6M6.9 6.6h.6M9.2 6.6h.6M11.5 6.6h.1M4.6 8.3h.6M6.9 8.3h.6M9.2 8.3h2.3M6.2 9.8h3.6"/></>,
   prev: <><path d="M4.8 3.8v8.4" strokeWidth="1.6"/><path d="M12 3.9 6.1 8l5.9 4.1z" fill="currentColor" stroke="none"/></>,
   next: <><path d="M11.2 3.8v8.4" strokeWidth="1.6"/><path d="M4 3.9 9.9 8 4 12.1z" fill="currentColor" stroke="none"/></>,
   close: <path d="M4.2 4.2 11.8 11.8M11.8 4.2 4.2 11.8"/>,
@@ -93,6 +103,9 @@ const iconPaths: Record<IconName, ReactNode> = {
 };
 function Icon({ name }: { name: IconName }) {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{iconPaths[name]}</svg>;
+}
+function Keys({ value }: { value: string }) {
+  return <span className="keys">{acceleratorParts(value).map((part, index) => <kbd key={`${part}-${index}`}>{part}</kbd>)}</span>;
 }
 function BrandMark() {
   return <svg className="brand-mark" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -205,7 +218,15 @@ function Group({ title, action, children, className = '', columns = 1 }: { title
 }
 
 function Page({ title, subtitle, children, home = false }: { title: string; subtitle: string; children: ReactNode; home?: boolean }) {
-  return <div className={`page ${home ? 'page-home' : ''}`}>
+  const element = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const page = element.current;
+    if (!page) return;
+    page.classList.remove('page-in');
+    void page.offsetWidth;
+    page.classList.add('page-in');
+  }, [title]);
+  return <div ref={element} className={`page ${home ? 'page-home' : ''}`}>
     <header className="page-head"><div><h1>{title}</h1><p>{subtitle}</p></div></header>
     {children}
   </div>;
@@ -278,6 +299,8 @@ function PreviewStage({ settings, status, fps, paused, onPaused, guides, onGuide
 function Studio() {
   const { settings, status, update } = useSettings();
   const [section, setSection] = useState<Section>('Home');
+  const [recordingKeybind, setRecordingKeybind] = useState<ToggleActionId | null>(null);
+  const [keybindHint, setKeybindHint] = useState('');
   const [fps, setFps] = useState(0);
   const [paused, setPaused] = useState(false);
   const [guides, setGuides] = useState(true);
@@ -347,6 +370,34 @@ function Studio() {
     else if (command === 'back') audio.currentTime = Math.max(0, audio.currentTime - 10);
     else if (command === 'forward') audio.currentTime = Math.min(Number.isFinite(audio.duration) ? audio.duration : audio.currentTime + 10, audio.currentTime + 10);
   }), []);
+  useEffect(() => {
+    if (!recordingKeybind) return;
+    void window.echo?.setKeybindCapture(true);
+    const cancel = () => { setRecordingKeybind(null); setKeybindHint(''); };
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === 'Control' || event.key === 'Alt' || event.key === 'Shift' || event.key === 'Meta') return;
+      event.preventDefault(); event.stopPropagation();
+      if (event.key === 'Escape') { cancel(); return; }
+      const accelerator = acceleratorFromEvent(event);
+      if (!accelerator) { setKeybindHint('Use at least one modifier (Ctrl, Alt, Shift) or an F-key.'); return; }
+      const next = { ...settings.keybinds };
+      for (const id of Object.keys(next)) if (next[id] === accelerator) delete next[id];
+      next[recordingKeybind] = accelerator;
+      update({ keybinds: next });
+      setRecordingKeybind(null);
+      setKeybindHint('');
+    };
+    window.addEventListener('keydown', listener, true);
+    window.addEventListener('blur', cancel);
+    return () => {
+      window.removeEventListener('keydown', listener, true);
+      window.removeEventListener('blur', cancel);
+      void window.echo?.setKeybindCapture(false);
+    };
+  }, [recordingKeybind, settings.keybinds]);
+  useEffect(() => {
+    if (section !== 'Keybinds' && recordingKeybind) { setRecordingKeybind(null); setKeybindHint(''); }
+  }, [section, recordingKeybind]);
   const openLocalAudio = async (file: File) => {
     audioRef.current?.pause();
     if (mediaUrlRef.current) URL.revokeObjectURL(mediaUrlRef.current);
@@ -399,7 +450,7 @@ function Studio() {
       if (!value || typeof value !== 'object' || (value as { schemaVersion?: unknown }).schemaVersion !== 1 || !(value as { settings?: unknown }).settings || typeof (value as { settings?: unknown }).settings !== 'object') throw new Error('Unsupported preset file.');
       const bundle = value as { name?: string; settings: Partial<AppSettings> };
       setPresetName(typeof bundle.name === 'string' ? bundle.name.slice(0, 60) : 'Imported preset');
-      update({ ...bundle.settings, audioEnabled: false, miniplayerX: null, miniplayerY: null });
+      update({ ...bundle.settings, audioEnabled: false, miniplayerX: null, miniplayerY: null, keybinds: settings.keybinds, uiAnimations: settings.uiAnimations, uiAnimationSpeed: settings.uiAnimationSpeed });
     } catch (error) { alert(error instanceof Error ? error.message : 'Could not import preset.'); }
   };
   const duplicatePreset = (item: { name: string; settings: AppSettings }) => {
@@ -441,7 +492,7 @@ function Studio() {
   const stage = <PreviewStage settings={settings} status={status} fps={fps} paused={paused} onPaused={setPaused}
     guides={guides} onGuides={setGuides} onFrame={recordFrame} update={update} compact={section !== 'Home'}/>;
 
-  return <div className="app">
+  return <div className={`app ${settings.uiAnimations ? '' : 'no-ui-motion'}`} style={{ '--ui-speed': settings.uiAnimationSpeed } as CSSProperties}>
     <audio ref={audioRef} src={mediaUrl ?? undefined} onTimeUpdate={publishPlayback} onPlay={publishPlayback} onPause={publishPlayback} onSeeking={publishPlayback} onLoadedMetadata={publishPlayback} onEnded={publishPlayback}/>
     <input ref={audioPickRef} className="hidden-file" type="file" accept="audio/*,.mp3,.flac,.m4a,.wav,.ogg" onChange={(event) => { const file = event.target.files?.[0]; if (file) void openLocalAudio(file); event.target.value = ''; }}/>
     <input ref={lrcPickRef} className="hidden-file" type="file" accept=".lrc,text/plain" onChange={(event) => { const file = event.target.files?.[0]; if (file) void openLrc(file); event.target.value = ''; }}/>
@@ -761,7 +812,13 @@ function Studio() {
               <Slider label="Background opacity" value={settings.miniplayerOpacity} min={.25} max={1} step={.01} unit="%" onChange={(value) => update({ miniplayerOpacity: value })} hint="Lower values let the desktop show through the panel."/>
               <p className="hint">Drag the panel by its header. Its position is remembered; the side setting re-anchors it. While the miniplayer is on, lyric words leave the desktop edges and appear only in the panel — the peripheral light field stays on the desktop.</p>
             </Group>
-            <Group title="In the panel">
+            <Group title="Word bounce" action={<span className={`tag ${settings.miniplayerBounce ? 'ok' : 'muted'}`}>{settings.miniplayerBounce ? 'On' : 'Off'}</span>}>
+              <Toggle label="Bounce words" description="Pulse each word as playback reaches it" checked={settings.miniplayerBounce} onChange={(value) => update({ miniplayerBounce: value })}/>
+              <SelectField label="Style" value={settings.miniplayerBounceStyle} options={bounceOptions} onChange={(value) => update({ miniplayerBounceStyle: value as MiniplayerBounceStyle })} hint={bounceBlurbs[settings.miniplayerBounceStyle]}/>
+              <Slider label="Bounce speed" value={settings.miniplayerBounceSpeed} min={.5} max={2} step={.05} unit="×" onChange={(value) => update({ miniplayerBounceSpeed: value })}/>
+              <p className="hint">The current word bounces when its timestamp is reached. Turn it off for a colour-only highlight.</p>
+            </Group>
+            <Group title="In the panel" className="span-2">
               <div className="status-list">
                 <div><span>Lyrics</span><b>Word-level highlight</b></div>
                 <div><span>Transport</span><b>Always visible</b></div>
@@ -815,7 +872,7 @@ function Studio() {
                 {savedPresets.map((item) => <div className="preset-row" key={item.name}>
                   <span className="preset-row-swatch" style={{ background: `linear-gradient(135deg, ${item.settings.color}, ${item.settings.secondaryColor})` }}/>
                   <div className="preset-row-copy"><b>{item.name}</b><span>{item.settings.animationMode} · {item.settings.themeMode}</span></div>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => update({ ...item.settings, audioEnabled: false })}>Apply</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => update({ ...item.settings, audioEnabled: false, miniplayerX: null, miniplayerY: null, keybinds: settings.keybinds, uiAnimations: settings.uiAnimations, uiAnimationSpeed: settings.uiAnimationSpeed })}>Apply</button>
                   <button type="button" className="icon-btn" onClick={() => duplicatePreset(item)} title="Duplicate preset" aria-label={`Duplicate ${item.name}`}><Icon name="copy"/></button>
                 </div>)}
               </div> : <p className="empty">No saved presets yet. Tune the look, name it above, and save it here.</p>}
@@ -849,6 +906,43 @@ function Studio() {
           </div>
         </Page>}
 
+        {section === 'Keybinds' && <Page title="Keybinds" subtitle="Give the toggles you reach for most a global shortcut.">
+          {stage}
+          <div className="grid-2">
+            <Group title="Toggle shortcuts" className="span-2" action={<span className="group-note">{Object.keys(settings.keybinds).length} bound</span>}>
+              <div className="keybind-list">
+                {TOGGLE_ACTIONS.map((action) => {
+                  const accelerator = settings.keybinds[action.id];
+                  const listening = recordingKeybind === action.id;
+                  const enabled = action.id === 'manualExclusion' ? !!settings.manualExclusion : Boolean(settings[action.id]);
+                  return <div key={action.id} className={`keybind-row ${listening ? 'listening' : ''}`}>
+                    <div className="keybind-copy"><b>{action.label}</b><span>{action.description}</span></div>
+                    <span className={`keybind-state ${enabled ? 'on' : ''}`}>{enabled ? 'On' : 'Off'}</span>
+                    <span className="keybind-value">{accelerator ? <Keys value={accelerator}/> : <em>Unbound</em>}</span>
+                    <div className="keybind-actions">
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+                        if (listening) { setRecordingKeybind(null); setKeybindHint(''); }
+                        else { setRecordingKeybind(action.id); setKeybindHint('Press the new combination. Esc cancels.'); }
+                      }}>{listening ? 'Listening…' : accelerator ? 'Rebind' : 'Bind'}</button>
+                      {accelerator && <button type="button" className="icon-btn" onClick={() => { const next = { ...settings.keybinds }; delete next[action.id]; update({ keybinds: next }); }} aria-label={`Clear ${action.label}`} title={`Clear ${action.label}`}><Icon name="close"/></button>}
+                    </div>
+                  </div>;
+                })}
+              </div>
+              {recordingKeybind && <p className="keybind-hint">{keybindHint || 'Press the new combination. Esc cancels.'}</p>}
+              {status.shortcutIssues?.length ? <p className="error">Could not register: {status.shortcutIssues.join(', ')}. Try another combination or check for a Windows conflict.</p> : null}
+              <p className="hint">Shortcuts are global. Use at least one modifier (Ctrl, Alt, Shift) or an F-key. Assigning a combination removes it from any other action.</p>
+            </Group>
+            <Group title="Fixed" className="span-2">
+              <div className="shortcut-list">
+                <div><span>Hide overlay</span><span className="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>H</kbd></span></div>
+                <div><span>Open studio</span><span className="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>S</kbd></span></div>
+              </div>
+              <p className="hint">These two stay fixed so you can always reach the app. The overlay toggle starts on Ctrl+Alt+Shift+O and can be changed above.</p>
+            </Group>
+          </div>
+        </Page>}
+
         {section === 'General Settings' && <Page title="General" subtitle="Overlay behaviour, comfort, and shortcuts.">
           {stage}
           <div className="grid-2">
@@ -859,12 +953,18 @@ function Studio() {
             <Group title="Comfort">
               <Toggle label="Reduced motion" description="Greatly lowers drift and rotation" checked={settings.reducedMotion} onChange={(value) => update({ reducedMotion: value })}/>
             </Group>
-            <Group title="Shortcuts" className="span-2">
+            <Group title="Interface">
+              <Toggle label="Menu animations" description="Animate page changes and panel groups" checked={settings.uiAnimations} onChange={(value) => update({ uiAnimations: value })}/>
+              <Slider label="Animation speed" value={settings.uiAnimationSpeed} min={.5} max={2} step={.05} unit="×" onChange={(value) => update({ uiAnimationSpeed: value })}/>
+              <p className="hint">Higher values are quicker. Turn menu animations off for instant page changes.</p>
+            </Group>
+            <Group title="Shortcuts" className="span-2" action={<button type="button" className="link-btn" onClick={() => setSection('Keybinds')}>Manage</button>}>
               <div className="shortcut-list">
                 <div><span>Hide overlay</span><span className="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>H</kbd></span></div>
-                <div><span>Toggle overlay</span><span className="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>O</kbd></span></div>
+                <div><span>Toggle overlay</span>{settings.keybinds.overlayEnabled ? <Keys value={settings.keybinds.overlayEnabled}/> : <span className="unbound">Unbound</span>}</div>
                 <div><span>Open studio</span><span className="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>S</kbd></span></div>
               </div>
+              <p className="hint">Every toggle, including the miniplayer, lighting, and menu animations, can be rebound on the Keybinds page. Hide and Open studio are fixed.</p>
             </Group>
             <Group title="System" className="span-2">
               <div className="status-list">
@@ -938,7 +1038,7 @@ function Miniplayer() {
     : 'No timed lyrics for this track.';
 
   return <div className="mp-root">
-    <section className="mp-panel" style={{ '--mp-primary': settings.color, '--mp-secondary': settings.secondaryColor, '--mp-scale': settings.miniplayerScale, '--mp-opacity': settings.miniplayerOpacity } as CSSProperties}>
+    <section className={`mp-panel ${settings.miniplayerBounce ? `bounce-${settings.miniplayerBounceStyle}` : ''}`} style={{ '--mp-primary': settings.color, '--mp-secondary': settings.secondaryColor, '--mp-scale': settings.miniplayerScale, '--mp-opacity': settings.miniplayerOpacity, '--mp-bounce-speed': settings.miniplayerBounceSpeed } as CSSProperties}>
       <header className="mp-head" title="Drag to move">
         <span className="mp-grip" aria-hidden="true"><i/><i/><i/><i/><i/><i/></span>
         <BrandMark/>
@@ -959,7 +1059,7 @@ function Miniplayer() {
                   ? words.map((word, wordIndex) => {
                     const sung = word.startMs <= lyricClock;
                     const current = sung && (words[wordIndex + 1]?.startMs ?? Infinity) > lyricClock;
-                    return <span key={wordIndex} className={`mp-word ${sung ? 'sung' : ''} ${current ? 'current' : ''}`}>{word.text} </span>;
+                    return <span key={wordIndex} className={`mp-word ${sung ? 'sung' : ''} ${current ? 'current' : ''}`}>{word.text}</span>;
                   })
                   : <span className="mp-line-text">{line.text}</span>}
               </div>;
@@ -1020,7 +1120,7 @@ function Miniplayer() {
   </div>;
 }
 
-type Section = 'Home' | 'Now Playing' | 'Visual Studio' | 'Typography' | 'Animation' | 'Lighting' | 'Theme' | 'Spatial Audio' | 'Miniplayer' | 'Placement' | 'Presets' | 'Performance' | 'General Settings';
+type Section = 'Home' | 'Now Playing' | 'Visual Studio' | 'Typography' | 'Animation' | 'Lighting' | 'Theme' | 'Spatial Audio' | 'Miniplayer' | 'Placement' | 'Presets' | 'Performance' | 'Keybinds' | 'General Settings';
 const navGroups: { label?: string; items: { id: Section; label: string; icon: IconName }[] }[] = [
   { items: [{ id: 'Home', label: 'Home', icon: 'home' }, { id: 'Now Playing', label: 'Now playing', icon: 'note' }] },
   { label: 'Design', items: [
@@ -1039,6 +1139,7 @@ const navGroups: { label?: string; items: { id: Section; label: string; icon: Ic
 const systemNav: { id: Section; label: string; icon: IconName }[] = [
   { id: 'Presets', label: 'Presets', icon: 'preset' },
   { id: 'Performance', label: 'Performance', icon: 'gauge' },
+  { id: 'Keybinds', label: 'Keybinds', icon: 'keyboard' },
   { id: 'General Settings', label: 'General', icon: 'settings' }
 ];
 

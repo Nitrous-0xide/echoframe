@@ -18,6 +18,7 @@ Everything else is there to shape that atmosphere: typography, motion, colour, a
 - **Reactive but local.** Optional WASAPI loopback analysis drives the light field and motion. Audio never leaves the machine.
 - **A real studio.** Six starting presets, saved looks, versioned JSON import/export, ten motion behaviours, three placement modes, artwork-derived palettes, and a performance panel.
 - **A miniplayer when you want one.** An optional tall panel on either edge collapses the lyrics into a single readable column, with an always-visible minimal transport and song details a click away.
+- **Shortcuts and motion, on your terms.** Bind any toggle to a global key, tune or disable studio page animations, and choose a bounce style, speed, or silence for the words in the miniplayer.
 
 ![Words continuing to flow around the desktop](docs/media/overlay-wordflow.gif)
 
@@ -57,7 +58,15 @@ An optional second surface for the same word-level lyrics. Turn it on and the de
 
 The panel keeps a compact transport visible at all times: previous, −10 seconds, play/pause, +10 seconds, and next. The title bar opens song details in place without hiding those controls. Drag the panel by its header; its position is remembered, and changing the side in the studio re-anchors it.
 
-Turn it on from the Home inspector or the **Miniplayer** page. Side, scale, and background opacity are set on that page. Previous and next tracks go through the Windows media session; play/pause and ±10 seconds also work for local playback. When the panel is on, the edge lyrics are hidden, so the whole lyric stream lives in one place.
+Turn it on from the Home inspector or the **Miniplayer** page. Side, scale, background opacity, and word bounce are set on that page. Each word can bounce as its timestamp is reached: choose Soft lift, Pop, Spring, or Tilt, change the speed, or turn it off for a colour-only highlight. Previous and next tracks go through the Windows media session; play/pause and ±10 seconds also work for local playback. When the panel is on, the edge lyrics are hidden, so the whole lyric stream lives in one place.
+
+## Keybinds and motion
+
+Every toggle in the app can own a global shortcut: overlay, click-through, lighting, lighting-only, photosensitivity, reduced motion, miniplayer, word bounce, audio analysis, the protected rectangle, and menu animations. Open **Keybinds**, press **Bind**, then the combination. Shortcuts require a modifier or an F-key, assigning one moves it from any other action, and combinations already taken by Windows or another app are reported so you can pick another. Hide overlay and Open studio stay fixed so the app is always reachable.
+
+![Keybind recorder](docs/media/studio-keybinds.png)
+
+Studio pages and their groups animate in when you switch sections. Set the speed in **General → Interface animations**, or turn menu animations off for instant changes. The miniplayer's bounce has its own style, speed, and on/off setting, so the two can be tuned independently.
 
 ## How it works
 
@@ -127,6 +136,7 @@ native/EchoAudio/         .NET 9 WASAPI loopback helper and media watcher
 src/lyrics/               LRC, Lyricsfile, word timing, display events
 src/scene/                Three.js scene, placement engine, lighting
 src/theme/                Artwork palette extraction and theme colours
+src/keybinds.ts           Accelerator parsing and toggle shortcuts
 src/miniplayer/           Miniplayer panel geometry
 src/main.tsx              Studio, overlay, and miniplayer UI
 tests/                    Unit tests and Electron smoke tests
@@ -138,9 +148,11 @@ docs/media/               README images and GIFs
 
 | Action | Shortcut |
 |---|---|
-| Hide the overlay | `Ctrl` + `Alt` + `Shift` + `H` |
-| Toggle the overlay | `Ctrl` + `Alt` + `Shift` + `O` |
-| Reopen the studio | `Ctrl` + `Alt` + `Shift` + `S` |
+| Hide the overlay | `Ctrl` + `Alt` + `Shift` + `H` (fixed) |
+| Toggle the overlay | `Ctrl` + `Alt` + `Shift` + `O` (default, rebindable) |
+| Reopen the studio | `Ctrl` + `Alt` + `Shift` + `S` (fixed) |
+
+Open **Keybinds** to assign global shortcuts to any toggle, including the miniplayer, lighting, audio analysis, word bounce, and menu animations. Global shortcuts are exclusive to one owner; if Windows or another app holds a combination, the page reports it.
 
 The tray menu also opens the studio, toggles the overlay, and quits.
 
@@ -155,6 +167,7 @@ ECHOFRAME 0.9.8 is an unsigned Windows preview. The following are known limits r
 - Line-only lyrics use estimated word pacing, which can drift from sustained or unusually phrased vocals.
 - Live capture, click-through, and multi-monitor hotplug still deserve hands-on testing on each target setup.
 - The miniplayer appears on the primary display and can be dragged anywhere on it. Its position is remembered; changing the side re-anchors it. Track skipping depends on the player implementing Windows transport controls; local playback supports only play/pause and ±10 seconds.
+- Global keybinds are exclusive. Another app, or a second ECHOFRAME instance, can own a combination; the Keybinds page lists anything that could not be registered.
 - No source separation, licensed commercial lyrics provider, content-aware window avoidance, multiple exclusion regions, MSDF text, code signing, or automatic updates.
 - The installer is unsigned and may trigger SmartScreen.
 

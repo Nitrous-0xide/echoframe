@@ -78,6 +78,25 @@ async function evaluate(page, expression) {
     await sleep(350);
     console.log('Song details open inline with the transport still visible.');
 
+    const bounce = () => evaluate(mp, `(() => {
+      const word = document.querySelector('.mp-line.active .mp-word.sung');
+      return { panel: document.querySelector('.mp-panel')?.className ?? '', word: !!word, animation: word ? getComputedStyle(word).animationName : '' };
+    })()`);
+    let bounceState = await bounce();
+    if (!bounceState.word) throw new Error('No active sung word to bounce');
+    if (!bounceState.panel.includes('bounce-soft') || bounceState.animation !== 'mpBounceSoft') throw new Error(`Soft bounce is not applied: ${JSON.stringify(bounceState)}`);
+    await page.call('Runtime.evaluate', { expression: `window.echo.saveSettings({ miniplayerBounceStyle: 'spring' })`, awaitPromise: true });
+    await sleep(500);
+    bounceState = await bounce();
+    if (!bounceState.panel.includes('bounce-spring') || bounceState.animation !== 'mpBounceSpring') throw new Error(`Spring bounce is not applied: ${JSON.stringify(bounceState)}`);
+    await page.call('Runtime.evaluate', { expression: `window.echo.saveSettings({ miniplayerBounce: false })`, awaitPromise: true });
+    await sleep(500);
+    bounceState = await bounce();
+    if (bounceState.panel.includes('bounce-') || bounceState.animation !== 'none') throw new Error(`Bounce did not turn off: ${JSON.stringify(bounceState)}`);
+    await page.call('Runtime.evaluate', { expression: `window.echo.saveSettings({ miniplayerBounce: true, miniplayerBounceStyle: 'soft' })`, awaitPromise: true });
+    await sleep(400);
+    console.log('Word bounce switches style and turns off cleanly.');
+
     await evaluate(page, `document.querySelector('audio').currentTime = 2`);
     await sleep(250);
     const before = await evaluate(page, `document.querySelector('audio').currentTime`);

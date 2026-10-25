@@ -33,6 +33,7 @@ const api: EchoAPI = {
     ipcRenderer.on('playback:command', listener);
     return () => ipcRenderer.removeListener('playback:command', listener);
   },
+  setKeybindCapture: (active: boolean) => ipcRenderer.invoke('keybinds:capture', active),
   onPlayback(callback: (state: PlaybackState) => void) {
     const listener = (_event: Electron.IpcRendererEvent, value: PlaybackState) => callback(value);
     ipcRenderer.on('playback:changed', listener);

@@ -60,6 +60,13 @@ function evaluate(target, expression) {
     if (result.lyricsCount && !result.wordsCount) throw new Error('Timed lines did not become individual word events.');
     console.log(`Packaged app started. Media source: ${result.status.mediaSource || 'none active'}. Track: ${result.playback.title || 'none active'}. Lyrics: ${result.lyricsCount} lines, ${result.wordsCount} words (${result.status.lyricsTiming || 'none'} timing).`);
 
+    const shortcutIssues = await evaluate(target, `(async () => {
+      const current = await window.echo.getSettings();
+      await window.echo.saveSettings({ keybinds: { ...current.keybinds, miniplayerEnabled: 'Ctrl+Alt+Shift+F12' } });
+      return (await window.echo.getStatus()).shortcutIssues ?? [];
+    })()`);
+    if (shortcutIssues.includes('Miniplayer')) throw new Error('Custom keybind registration failed');
+    console.log(shortcutIssues.length ? `Custom keybind registered; other shortcuts are held elsewhere: ${shortcutIssues.join(', ')}` : 'Custom keybind registered without conflicts.');
     await evaluate(target, `window.echo.saveSettings({ miniplayerEnabled: true, miniplayerSide: 'right', miniplayerScale: 1 })`);
     let miniplayer = null;
     for (let i = 0; i < 40 && !miniplayer; i++) {

@@ -632,6 +632,15 @@ kbd {
 .mp-line.active .mp-word { color: #8E909A; transition: color .1s linear; }
 .mp-line.active .mp-word.sung { color: var(--mp-primary); }
 .mp-line.active .mp-word.current { color: var(--mp-secondary); text-shadow: 0 0 .9em currentColor; }
+.mp-word { display: inline-block; margin-right: .26em; }
+.mp-panel.bounce-soft .mp-line.active .mp-word.sung { animation: mpBounceSoft calc(.5s / var(--mp-bounce-speed, 1)) cubic-bezier(.22, .9, .28, 1) both; }
+.mp-panel.bounce-pop .mp-line.active .mp-word.sung { animation: mpBouncePop calc(.34s / var(--mp-bounce-speed, 1)) cubic-bezier(.22, .9, .28, 1) both; }
+.mp-panel.bounce-spring .mp-line.active .mp-word.sung { animation: mpBounceSpring calc(.62s / var(--mp-bounce-speed, 1)) cubic-bezier(.22, .9, .28, 1) both; }
+.mp-panel.bounce-tilt .mp-line.active .mp-word.sung { animation: mpBounceTilt calc(.5s / var(--mp-bounce-speed, 1)) cubic-bezier(.22, .9, .28, 1) both; }
+@keyframes mpBounceSoft { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-.16em) scale(1.06); } 100% { transform: translateY(0) scale(1); } }
+@keyframes mpBouncePop { 0% { transform: scale(.88); } 55% { transform: scale(1.14); } 100% { transform: scale(1); } }
+@keyframes mpBounceSpring { 0% { transform: translateY(0); } 28% { transform: translateY(-.32em); } 52% { transform: translateY(.07em); } 72% { transform: translateY(-.12em); } 100% { transform: translateY(0); } }
+@keyframes mpBounceTilt { 0% { transform: rotate(0) scale(1); } 38% { transform: rotate(-4deg) scale(1.1); } 100% { transform: rotate(0) scale(1); } }
 .mp-line.active .mp-line-text { color: var(--mp-primary); }
 .mp-empty { padding-top: .8em; font-family: var(--font); font-size: .84em; font-weight: 400; line-height: 1.6; letter-spacing: 0; color: var(--text-4); }
 
@@ -708,6 +717,39 @@ kbd {
 .mp-play svg { width: 1.15em; height: 1.15em; }
 .mp-play:hover { filter: brightness(1.08); }
 .mp-tbtn:disabled, .mp-play:disabled { opacity: .35; cursor: not-allowed; }
+
+
+/* UI motion and keybind editor ------------------------------------------- */
+
+.page-in { animation: pageIn calc(.3s / var(--ui-speed, 1)) cubic-bezier(.2, .8, .2, 1) both; }
+.page-in .group { animation: groupIn calc(.28s / var(--ui-speed, 1)) cubic-bezier(.2, .8, .2, 1) both; }
+.page-in .group:nth-child(2) { animation-delay: calc(.03s / var(--ui-speed, 1)); }
+.page-in .group:nth-child(3) { animation-delay: calc(.06s / var(--ui-speed, 1)); }
+.page-in .group:nth-child(4) { animation-delay: calc(.09s / var(--ui-speed, 1)); }
+@keyframes pageIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes groupIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.app.no-ui-motion *, .app.no-ui-motion *::before, .app.no-ui-motion *::after {
+  animation-duration: .001ms !important;
+  animation-delay: 0s !important;
+  transition-duration: .001ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+.keybind-list { display: flex; flex-direction: column; }
+.keybind-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.keybind-row:last-child { border-bottom: 0; }
+.keybind-row.listening { margin: 0 -8px; padding: 8px; border-radius: 5px; background: var(--accent-soft); }
+.keybind-copy { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.keybind-copy b { font-size: 11.5px; font-weight: 500; color: var(--text-2); }
+.keybind-copy span { font-size: 10.5px; color: var(--text-4); }
+.keybind-state { font-size: 9.5px; color: var(--text-4); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; }
+.keybind-state.on { color: #93BFAD; border-color: #2C3A35; }
+.keybind-value { min-width: 118px; display: flex; align-items: center; justify-content: flex-end; }
+.keybind-value em { font-style: normal; font-size: 10.5px; color: var(--text-4); }
+.keybind-actions { display: flex; align-items: center; gap: 4px; }
+.keybind-hint { margin: 6px 0 0; padding: 6px 8px; border: 1px solid var(--accent-line); border-radius: 5px; background: var(--accent-soft); font-size: 11px; color: var(--text-2); }
+.unbound { font-size: 10.5px; color: var(--text-4); }
 
 /* Responsive ------------------------------------------------------------- */
 

@@ -49,7 +49,7 @@ app.whenReady().then(async () => {
 
     await clickNav(window, 'Miniplayer');
     const miniText = await window.webContents.executeJavaScript('document.body.innerText');
-    if (!miniText.includes('Enable miniplayer') || !miniText.includes('Scale') || !miniText.includes('Background opacity')) throw new Error('Miniplayer controls are missing');
+    if (!miniText.includes('Enable miniplayer') || !miniText.includes('Scale') || !miniText.includes('Background opacity') || !miniText.includes('Bounce words')) throw new Error('Miniplayer controls are missing');
     await window.webContents.executeJavaScript(`[...document.querySelectorAll('.switch-row')].find((row) => row.textContent.includes('Enable miniplayer'))?.querySelector('input')?.click()`);
     await new Promise((resolve) => setTimeout(resolve, 700));
     const miniOn = await window.webContents.executeJavaScript('document.body.innerText');
@@ -57,6 +57,25 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript(`[...document.querySelectorAll('.switch-row')].find((row) => row.textContent.includes('Enable miniplayer'))?.querySelector('input')?.click()`);
     await new Promise((resolve) => setTimeout(resolve, 400));
     await shot(window, 'studio-miniplayer.png');
+
+    await clickNav(window, 'Keybinds');
+    const keybindText = await window.webContents.executeJavaScript('document.body.innerText');
+    if (!keybindText.includes('Toggle shortcuts') || !keybindText.includes('Bind') || !keybindText.includes('Hide overlay')) throw new Error('Keybind page is incomplete');
+    if (!await window.webContents.executeJavaScript(`!!document.querySelector('.page.page-in')`)) throw new Error('Page transition class is missing');
+    await window.webContents.executeJavaScript(`[...document.querySelectorAll('.keybind-row')].find((row) => row.textContent.includes('Miniplayer'))?.querySelector('.btn')?.click()`);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await window.webContents.executeJavaScript(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', code: 'KeyM', ctrlKey: true, altKey: true, bubbles: true, cancelable: true }))`);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const bindRow = await window.webContents.executeJavaScript(`[...document.querySelectorAll('.keybind-row')].find((row) => row.textContent.includes('Miniplayer'))?.innerText ?? ''`);
+    if (!bindRow.includes('Ctrl') || !bindRow.includes('M') || !bindRow.includes('Rebind')) throw new Error(`Keybind recorder did not assign: ${bindRow}`);
+    await shot(window, 'studio-keybinds.png');
+
+    await clickNav(window, 'General');
+    await window.webContents.executeJavaScript(`[...document.querySelectorAll('.switch-row')].find((row) => row.textContent.includes('Menu animations'))?.querySelector('input')?.click()`);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    if (!await window.webContents.executeJavaScript(`document.querySelector('.app').classList.contains('no-ui-motion')`)) throw new Error('Menu animations toggle did not apply');
+    await window.webContents.executeJavaScript(`[...document.querySelectorAll('.switch-row')].find((row) => row.textContent.includes('Menu animations'))?.querySelector('input')?.click()`);
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
     window.setSize(1000, 680);
     await clickNav(window, 'Home');

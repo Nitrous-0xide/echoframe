@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AnimationMode, AppSettings, Edge, MediaCommand, PlacementMode, PlaybackState, RuntimeStatus, ThemeMode, TimedLine, WordTimingKind } from '../src/types';
 import { miniplayerBounds, miniplayerScale } from '../src/miniplayer/layout';
+import { sanitizeKeybinds, TOGGLE_ACTIONS, type ToggleActionId } from '../src/keybinds';
 import { AudioBridge } from './audio';
 import { MediaBridge, type MediaFrame } from './media';
 import { LrclibClient } from './lyricsService';
@@ -18,7 +19,10 @@ const defaults: AppSettings = {
   fontFamily: 'Segoe UI', fontWeight: 800, letterSpacing: 0, outlineWidth: 10, glowStrength: 30,
   lightingOnly: false, lightingEdges: ['top', 'right', 'bottom', 'left'], placementMode: 'Strict Edge', manualExclusion: null,
   lyricOffsetMs: 0, miniplayerEnabled: false, miniplayerSide: 'right', miniplayerScale: 1,
-  miniplayerOpacity: .94, miniplayerX: null, miniplayerY: null
+  miniplayerOpacity: .94, miniplayerX: null, miniplayerY: null,
+  miniplayerBounce: true, miniplayerBounceStyle: 'soft', miniplayerBounceSpeed: 1,
+  uiAnimations: true, uiAnimationSpeed: 1,
+  keybinds: { overlayEnabled: 'Ctrl+Alt+Shift+O' }
 };
 const edgeValues: Edge[] = ['top', 'right', 'bottom', 'left'];
 const presets = ['Ethereal', 'Neon Depth', 'Minimal', 'Kinetic', 'Ambient', 'Spatial'];
@@ -26,6 +30,9 @@ const animationModes: AnimationMode[] = ['Float', 'Bounce', 'Pop', 'Orbit', 'Dri
 const themeModes: ThemeMode[] = ['Album Adaptive', 'Monochrome', 'Gradient', 'Custom Palette', 'Rainbow', 'Dynamic Audio Colour'];
 const fontFamilies = ['Segoe UI', 'Arial', 'Georgia', 'Consolas', 'Impact'];
 const placementModes: PlacementMode[] = ['Strict Edge', 'Dynamic Edge', 'Immersive'];
+const bounceStyles: AppSettings['miniplayerBounceStyle'][] = ['soft', 'pop', 'spring', 'tilt'];
+let failedShortcuts: string[] = [];
+let capturingKeybind = false;
 let settings = { ...defaults };
 let studio: BrowserWindow | null = null;
 let miniplayer: BrowserWindow | null = null;
@@ -97,7 +104,13 @@ function validate(input: Partial<AppSettings>): AppSettings {
     miniplayerScale: Math.round(miniplayerScale(clamp(input.miniplayerScale, defaults.miniplayerScale, 0, 5)) * 100) / 100,
     miniplayerOpacity: Math.round(clamp(input.miniplayerOpacity, defaults.miniplayerOpacity, .2, 1) * 100) / 100,
     miniplayerX: typeof input.miniplayerX === 'number' && Number.isFinite(input.miniplayerX) ? Math.round(input.miniplayerX) : null,
-    miniplayerY: typeof input.miniplayerY === 'number' && Number.isFinite(input.miniplayerY) ? Math.round(input.miniplayerY) : null
+    miniplayerY: typeof input.miniplayerY === 'number' && Number.isFinite(input.miniplayerY) ? Math.round(input.miniplayerY) : null,
+    miniplayerBounce: typeof input.miniplayerBounce === 'boolean' ? input.miniplayerBounce : defaults.miniplayerBounce,
+    miniplayerBounceStyle: bounceStyles.includes(input.miniplayerBounceStyle ?? 'soft') ? input.miniplayerBounceStyle! : defaults.miniplayerBounceStyle,
+    miniplayerBounceSpeed: Math.round(clamp(input.miniplayerBounceSpeed, defaults.miniplayerBounceSpeed, .5, 2) * 100) / 100,
+    uiAnimations: typeof input.uiAnimations === 'boolean' ? input.uiAnimations : defaults.uiAnimations,
+    uiAnimationSpeed: Math.round(clamp(input.uiAnimationSpeed, defaults.uiAnimationSpeed, .5, 2) * 100) / 100,
+    keybinds: input.keybinds === undefined ? { ...defaults.keybinds } : sanitizeKeybinds(input.keybinds)
   };
 }
 function loadSettings() {
@@ -119,7 +132,8 @@ function status(): RuntimeStatus {
   const cpuPercent = app.getAppMetrics().reduce((sum, metric) => sum + (metric.cpu?.percentCPUUsage ?? 0), 0);
   return { overlayVisible: settings.overlayEnabled, displayCount: screen.getAllDisplays().length, gpu: 'Three.js / WebGL', audioCaptureActive: audioBridge.active,
     cpuPercent: Math.round(cpuPercent * 10) / 10, audioLatencyMs: lastAudioLatencyMs, error: lastError || undefined,
-    playbackSource, lyricsStatus, lyricsTiming, mediaSource };
+    playbackSource, lyricsStatus, lyricsTiming, mediaSource,
+    shortcutIssues: failedShortcuts.length ? [...failedShortcuts] : undefined };
 }
 function broadcastPlayback() {
   studio?.webContents.send('playback:changed', playback);
@@ -187,13 +201,60 @@ function broadcastSettings() {
   overlays.forEach(sendSettings);
   broadcastStatus();
 }
-function setVisibility(visible: boolean) {
-  settings.overlayEnabled = visible;
+function applySettings(patch: Partial<AppSettings>): AppSettings {
+  if (!patch || typeof patch !== 'object') return settings;
+  const wasCapturing = settings.audioEnabled;
+  const oldDevice = settings.audioDeviceId;
+  const previousSide = settings.miniplayerSide;
+  const previousKeybinds = JSON.stringify(settings.keybinds);
+  settings = validate({ ...settings, ...patch });
+  if (settings.miniplayerSide !== previousSide) {
+    settings.miniplayerX = null;
+    settings.miniplayerY = null;
+  }
+  if (settings.audioEnabled && (!wasCapturing || oldDevice !== settings.audioDeviceId)) audioBridge.start(settings.audioDeviceId);
+  else if (!settings.audioEnabled && wasCapturing) audioBridge.stop();
   persistSettings();
-  overlays.forEach((window) => { if (visible) window.showInactive(); else window.hide(); });
+  overlays.forEach((window) => {
+    window.setIgnoreMouseEvents(settings.clickThrough, { forward: true });
+    if (settings.overlayEnabled) window.showInactive(); else window.hide();
+  });
   syncMiniplayer();
   broadcastSettings();
   updateTray();
+  if (JSON.stringify(settings.keybinds) !== previousKeybinds) registerShortcuts();
+  return settings;
+}
+function setVisibility(visible: boolean) {
+  applySettings({ overlayEnabled: visible });
+}
+function toggleAction(action: ToggleActionId) {
+  if (action === 'manualExclusion') {
+    applySettings({ manualExclusion: settings.manualExclusion ? null : { x: .3, y: .3, width: .4, height: .4 } });
+    return;
+  }
+  const value = settings[action];
+  if (typeof value === 'boolean') applySettings({ [action]: !value } as Partial<AppSettings>);
+}
+function registerShortcuts() {
+  globalShortcut.unregisterAll();
+  failedShortcuts = [];
+  const fixed: { accelerator: string; label: string; handler: () => void }[] = [
+    { accelerator: 'Ctrl+Alt+Shift+H', label: 'Hide overlay', handler: () => setVisibility(false) },
+    { accelerator: 'Ctrl+Alt+Shift+S', label: 'Open studio', handler: () => { if (!studio) createStudio(); else studio.show(); } }
+  ];
+  for (const item of fixed) {
+    try { if (!globalShortcut.register(item.accelerator, item.handler)) failedShortcuts.push(item.label); }
+    catch { failedShortcuts.push(item.label); }
+  }
+  for (const action of TOGGLE_ACTIONS) {
+    const accelerator = settings.keybinds[action.id];
+    if (!accelerator) continue;
+    try {
+      if (!globalShortcut.register(accelerator, () => toggleAction(action.id))) failedShortcuts.push(action.label);
+    } catch { failedShortcuts.push(action.label); }
+  }
+  broadcastStatus();
 }
 function createOverlay(monitor: Display) {
   const bounds = monitor.bounds;
@@ -334,6 +395,7 @@ function createStudio() {
   studio.setAlwaysOnTop(true, 'floating', 1);
   studio.on('closed', () => {
     studio = null;
+    if (capturingKeybind) { capturingKeybind = false; registerShortcuts(); }
     if (settings.audioEnabled) { settings.audioEnabled = false; audioBridge.stop(); persistSettings(); }
   });
   studio.webContents.on('render-process-gone', (_event, details) => {
@@ -418,26 +480,12 @@ app.whenReady().then(() => {
     setLyrics(validated, validated.length ? 'local' : 'unavailable', ['word', 'estimated', 'mixed'].includes(timing) ? timing : 'none');
   });
   ipcMain.handle('settings:get', () => settings);
-  ipcMain.handle('settings:save', (_event, patch: Partial<AppSettings>) => {
-    if (!patch || typeof patch !== 'object') return settings;
-    const wasCapturing = settings.audioEnabled;
-    const oldDevice = settings.audioDeviceId;
-    const previousSide = settings.miniplayerSide;
-    settings = validate({ ...settings, ...patch });
-    if (settings.miniplayerSide !== previousSide) {
-      settings.miniplayerX = null;
-      settings.miniplayerY = null;
-    }
-    if (settings.audioEnabled && (!wasCapturing || oldDevice !== settings.audioDeviceId)) audioBridge.start(settings.audioDeviceId);
-    else if (!settings.audioEnabled && wasCapturing) audioBridge.stop();
-    persistSettings();
-    overlays.forEach((window) => {
-      window.setIgnoreMouseEvents(settings.clickThrough, { forward: true });
-      if (settings.overlayEnabled) window.showInactive(); else window.hide();
-    });
-    syncMiniplayer();
-    broadcastSettings(); updateTray();
-    return settings;
+  ipcMain.handle('settings:save', (_event, patch: Partial<AppSettings>) => applySettings(patch));
+  ipcMain.handle('keybinds:capture', (event, active: boolean) => {
+    if (event.sender !== studio?.webContents) return;
+    capturingKeybind = Boolean(active);
+    if (capturingKeybind) globalShortcut.unregisterAll();
+    else registerShortcuts();
   });
   ipcMain.handle('status:get', status);
   ipcMain.handle('overlay:visible', (_event, visible: boolean) => { setVisibility(Boolean(visible)); });
@@ -447,9 +495,7 @@ app.whenReady().then(() => {
   screen.on('display-added', reconcileDisplays);
   screen.on('display-removed', reconcileDisplays);
   screen.on('display-metrics-changed', reconcileDisplays);
-  globalShortcut.register('CommandOrControl+Alt+Shift+H', () => setVisibility(false));
-  globalShortcut.register('CommandOrControl+Alt+Shift+O', () => setVisibility(!settings.overlayEnabled));
-  globalShortcut.register('CommandOrControl+Alt+Shift+S', () => { if (!studio) createStudio(); else studio.show(); });
+  registerShortcuts();
 });
 app.on('window-all-closed', () => { /* The tray keeps the application available. */ });
 app.on('before-quit', () => { quitting = true; audioBridge.stop(); mediaBridge.stop(); lyricAbort?.abort(); globalShortcut.unregisterAll(); });
