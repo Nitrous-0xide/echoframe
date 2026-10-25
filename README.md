@@ -77,7 +77,7 @@ Timing is deliberately conservative:
 
 - **Recorded word timing** from Lyricsfile or enhanced LRC is used directly. Repeated words get independent objects.
 - **Line-only lyrics** are paced with a speaking-rate model that is anchored to the line's start, stops before the next line, and never claims to be exact. The studio labels it *estimated*.
-- **Line transitions** add at most a short, bounded nudge so two lyric chunks are not on screen at once. Corrections cannot accumulate: a 35 ms gap repeated across a 50-line song used to end up seconds late, and no longer does.
+- **Line transitions** add at most a short, bounded nudge so two lyric chunks are not on screen at once. Corrections cannot accumulate: the old per-line gap used to add up to seconds of delay by the end of a song, and it no longer can.
 - **Sync offset** shifts the whole lyric schedule in 25 ms steps, up to ±750 ms, and is saved with your settings.
 
 If a particular master still feels a word behind, nudge Sync upward. The studio shows whether the current lyrics use recorded, estimated, or mixed timing.
