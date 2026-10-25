@@ -1,0 +1,83 @@
+{
+  "name": "echoframe",
+  "version": "0.9.7",
+  "private": true,
+  "author": "Nitrous-Oxide",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nitrous-0xide/echoframe.git"
+  },
+  "homepage": "https://github.com/Nitrous-0xide/echoframe#readme",
+  "keywords": [
+    "windows",
+    "electron",
+    "threejs",
+    "lyrics",
+    "spotify",
+    "lrclib",
+    "visualizer",
+    "spatial-audio"
+  ],
+  "description": "Spatial desktop typography prototype for Windows",
+  "main": "dist-electron/electron/main.js",
+  "scripts": {
+    "dev": "npm run build:native:dev && tsc -p tsconfig.node.json && concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "build:native:dev": "dotnet build native/EchoAudio/EchoAudio.csproj -c Release",
+    "build:native": "dotnet publish native/EchoAudio/EchoAudio.csproj -c Release -r win-x64 --self-contained true -o native/EchoAudio/publish",
+    "build": "npm run build:native && tsc -p tsconfig.node.json && vite build && electron-builder --win nsis",
+    "check": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit && vite build",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/tests/*.test.js",
+    "smoke:visual": "electron tests/visual-smoke.cjs",
+    "smoke:local": "electron tests/local-smoke.cjs",
+    "smoke:package": "node tests/packaged-smoke.cjs",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "music-metadata": "^12.3.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.175.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.175.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "com.echoframe.desktop",
+    "productName": "ECHOFRAME",
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "assets/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "native/EchoAudio/publish/EchoAudio.exe",
+        "to": "EchoAudio.exe"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

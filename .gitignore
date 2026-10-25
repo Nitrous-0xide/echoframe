@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-electron/
+dist-test/
+release/
+artifacts/
+native/**/bin/
+native/**/obj/
+native/**/publish/
+examples/*.wav
+*.log
+.vs/
+*.user
+*.suo

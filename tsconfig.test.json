@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "outDir": "dist-test", "rootDir": ".", "strict": true,
+    "skipLibCheck": true, "types": ["node"]
+  },
+  "include": ["src/types.ts", "src/scene/PlacementEngine.ts", "src/scene/lightingMath.ts", "src/lyrics/lrc.ts", "src/theme/palette.ts", "tests/**/*.ts"]
+}
