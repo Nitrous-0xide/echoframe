@@ -19,6 +19,7 @@ Everything else is there to shape that atmosphere: typography, motion, colour, a
 - **A real studio.** Six starting presets, saved looks, versioned JSON import/export, ten motion behaviours, three placement modes, artwork-derived palettes, and a performance panel.
 - **A miniplayer when you want one.** An optional tall panel on either edge collapses the lyrics into a single readable column, with an always-visible minimal transport and song details a click away.
 - **Shortcuts and motion, on your terms.** Bind any toggle to a global key, tune or disable studio page animations, and choose a bounce style, speed, or silence for the words in the miniplayer.
+- **A frameless studio.** The brand row and toolbar double as the window drag surface, with integrated minimize, maximize, and close controls.
 
 ![Words continuing to flow around the desktop](docs/media/overlay-wordflow.gif)
 
@@ -127,6 +128,7 @@ The installer is written to `release/ECHOFRAME Setup 0.9.8.exe`. It is unsigned.
 - `npm run smoke:local` loads the synthetic WAV and enhanced LRC and verifies the lyric timeline.
 - `npm run smoke:package` starts the built app and checks its IPC, media source, and live lyrics.
 - `npm run smoke:miniplayer` drives the miniplayer's pause and +10 second controls against the built app using the demo track.
+- `npm run smoke:window` launches the built app, maximizes and restores the frameless studio through its window-control IPC, then closes the studio.
 
 ## Project layout
 

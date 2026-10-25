@@ -32,7 +32,8 @@
     "smoke:local": "electron tests/local-smoke.cjs",
     "smoke:package": "node tests/packaged-smoke.cjs",
     "start": "electron .",
-    "smoke:miniplayer": "node tests/miniplayer-smoke.cjs"
+    "smoke:miniplayer": "node tests/miniplayer-smoke.cjs",
+    "smoke:window": "node tests/window-smoke.cjs"
   },
   "dependencies": {
     "music-metadata": "^12.3.2",

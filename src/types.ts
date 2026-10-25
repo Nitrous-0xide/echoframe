@@ -6,6 +6,8 @@ export type PlacementMode = 'Strict Edge' | 'Dynamic Edge' | 'Immersive';
 export type MiniplayerSide = 'left' | 'right';
 export type MiniplayerBounceStyle = 'soft' | 'pop' | 'spring' | 'tilt';
 export type MediaCommand = 'toggle' | 'previous' | 'next' | 'back' | 'forward';
+export type WindowAction = 'minimize' | 'maximize' | 'close';
+export interface WindowState { maximized: boolean }
 export interface AppSettings {
   overlayEnabled: boolean;
   color: string;
@@ -84,6 +86,9 @@ export interface EchoAPI {
   mediaControl(command: MediaCommand): Promise<boolean>;
   onPlaybackCommand(callback: (command: MediaCommand) => void): () => void;
   setKeybindCapture(active: boolean): Promise<void>;
+  windowControl(action: WindowAction): Promise<WindowState>;
+  getWindowState(): Promise<WindowState>;
+  onWindowState(callback: (state: WindowState) => void): () => void;
 }
 declare global { interface Window { echo?: EchoAPI } }
 

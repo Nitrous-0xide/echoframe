@@ -1,7 +1,7 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, nativeImage, type Display } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { AnimationMode, AppSettings, Edge, MediaCommand, PlacementMode, PlaybackState, RuntimeStatus, ThemeMode, TimedLine, WordTimingKind } from '../src/types';
+import type { AnimationMode, AppSettings, Edge, MediaCommand, PlacementMode, PlaybackState, RuntimeStatus, ThemeMode, TimedLine, WindowAction, WindowState, WordTimingKind } from '../src/types';
 import { miniplayerBounds, miniplayerScale } from '../src/miniplayer/layout';
 import { sanitizeKeybinds, TOGGLE_ACTIONS, type ToggleActionId } from '../src/keybinds';
 import { AudioBridge } from './audio';
@@ -190,6 +190,9 @@ function applyMedia(frame: MediaFrame) {
   const next: PlaybackState = { trackId, title: frame.title || null, artist: frame.artist || null, album: frame.album || null,
     positionMs: frame.positionMs, durationMs: frame.durationMs, playing: frame.playing };
   setPlayback(next);
+}
+function windowState(): WindowState {
+  return { maximized: !!studio && !studio.isDestroyed() && studio.isMaximized() };
 }
 function broadcastStatus() {
   studio?.webContents.send('status:changed', status());
@@ -387,12 +390,18 @@ function reconcileDisplays() {
 function createStudio() {
   studio = new BrowserWindow({
     width: 1280, height: 820, minWidth: 1000, minHeight: 680,
+    frame: false, hasShadow: true,
     backgroundColor: '#101114', title: 'ECHOFRAME Studio', show: false,
     icon: path.join(app.getAppPath(), 'assets', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   studio.once('ready-to-show', () => { if (process.env.ECHOFRAME_SMOKE !== '1') studio?.show(); });
   studio.setAlwaysOnTop(true, 'floating', 1);
+  const sendWindowState = () => { if (studio && !studio.isDestroyed()) studio.webContents.send('window:state', windowState()); };
+  studio.on('maximize', sendWindowState);
+  studio.on('unmaximize', sendWindowState);
+  studio.on('enter-full-screen', sendWindowState);
+  studio.on('leave-full-screen', sendWindowState);
   studio.on('closed', () => {
     studio = null;
     if (capturingKeybind) { capturingKeybind = false; registerShortcuts(); }
@@ -488,6 +497,14 @@ app.whenReady().then(() => {
     else registerShortcuts();
   });
   ipcMain.handle('status:get', status);
+  ipcMain.handle('window:state', () => windowState());
+  ipcMain.handle('window:control', (event, action: WindowAction) => {
+    if (!studio || event.sender !== studio.webContents) return windowState();
+    if (action === 'minimize') studio.minimize();
+    else if (action === 'maximize') { if (studio.isMaximized()) studio.unmaximize(); else studio.maximize(); }
+    else if (action === 'close') studio.close();
+    return windowState();
+  });
   ipcMain.handle('overlay:visible', (_event, visible: boolean) => { setVisibility(Boolean(visible)); });
   createStudio();
   reconcileDisplays();

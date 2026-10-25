@@ -30,6 +30,13 @@ app.whenReady().then(async () => {
     if (!await window.webContents.executeJavaScript('!!document.querySelector(".stage-canvas .guide")')) throw new Error('Safe-zone guides are missing');
     const fits = await window.webContents.executeJavaScript(`(() => { const bar = document.querySelector('.session-bar')?.getBoundingClientRect(); return bar ? bar.bottom <= innerHeight + 1 : false; })()`);
     if (!fits) throw new Error('Home session bar is clipped at 1280 x 820');
+    const windowControls = await window.webContents.executeJavaScript(`({
+      controls: !!document.querySelector('.window-controls'),
+      minimize: !!document.querySelector('[aria-label="Minimize"]'),
+      maximize: !!document.querySelector('[aria-label="Maximize"]'),
+      close: !!document.querySelector('[aria-label="Close studio"]')
+    })`);
+    if (!windowControls.controls || !windowControls.minimize || !windowControls.maximize || !windowControls.close) throw new Error(`Window controls are missing: ${JSON.stringify(windowControls)}`);
     await shot(window, 'studio-home.png');
 
     await clickNav(window, 'Now playing');

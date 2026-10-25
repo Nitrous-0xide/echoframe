@@ -53,11 +53,13 @@ function evaluate(target, expression) {
       }
       const lyrics = await window.echo.getLyrics();
       return { status, playback: await window.echo.getPlayback(), lyricsCount: lyrics.length,
-        wordsCount: lyrics.reduce((count, line) => count + (line.words?.length || 0), 0) };
+        wordsCount: lyrics.reduce((count, line) => count + (line.words?.length || 0), 0),
+        windowState: await window.echo.getWindowState() };
     })()`);
     if (result.status.playbackSource !== 'system') throw new Error('Packaged app is not following Windows media.');
     if (!result.status.gpu || !result.playback) throw new Error('Packaged IPC returned incomplete state.');
     if (result.lyricsCount && !result.wordsCount) throw new Error('Timed lines did not become individual word events.');
+    if (result.windowState.maximized !== false) throw new Error('Studio window state is invalid.');
     console.log(`Packaged app started. Media source: ${result.status.mediaSource || 'none active'}. Track: ${result.playback.title || 'none active'}. Lyrics: ${result.lyricsCount} lines, ${result.wordsCount} words (${result.status.lyricsTiming || 'none'} timing).`);
 
     const shortcutIssues = await evaluate(target, `(async () => {

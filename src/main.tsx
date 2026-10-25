@@ -70,7 +70,7 @@ function lyricStatusText(state?: RuntimeStatus['lyricsStatus']) {
 }
 
 /* Icons: one stroke family, 16px grid, used everywhere in the interface. */
-type IconName = 'home' | 'note' | 'frame' | 'type' | 'motion' | 'light' | 'theme' | 'wave' | 'placement' | 'preset' | 'gauge' | 'settings' | 'play' | 'pause' | 'plus' | 'minus' | 'chevron' | 'guides' | 'copy' | 'upload' | 'download' | 'panel' | 'prev' | 'next' | 'close' | 'back' | 'info' | 'keyboard';
+type IconName = 'home' | 'note' | 'frame' | 'type' | 'motion' | 'light' | 'theme' | 'wave' | 'placement' | 'preset' | 'gauge' | 'settings' | 'play' | 'pause' | 'plus' | 'minus' | 'chevron' | 'guides' | 'copy' | 'upload' | 'download' | 'panel' | 'prev' | 'next' | 'close' | 'back' | 'info' | 'keyboard' | 'maximize' | 'restore';
 const iconPaths: Record<IconName, ReactNode> = {
   home: <><path d="M2.8 7.3 8 2.9l5.2 4.4v5.5c0 .5-.4.9-.9.9H3.7c-.5 0-.9-.4-.9-.9z"/><path d="M6.4 13.6V9.5h3.2v4.1"/></>,
   note: <><circle cx="5.3" cy="11.3" r="1.9"/><path d="M7.2 11.3V4.2l4.5-1.1v6.2"/><circle cx="9.8" cy="10.3" r="1.9"/></>,
@@ -96,6 +96,8 @@ const iconPaths: Record<IconName, ReactNode> = {
   panel: <><rect x="4.3" y="2.4" width="7.4" height="11.2" rx="1.5"/><path d="M6.2 5.5h3.6M6.2 7.7h3.6M6.2 9.9h2.3"/></>,
   info: <><circle cx="8" cy="8" r="5.6"/><path d="M8 7.2v3.5"/><circle cx="8" cy="5.1" r=".65" fill="currentColor" stroke="none"/></>,
   keyboard: <><rect x="2.2" y="4.3" width="11.6" height="7.4" rx="1.5"/><path d="M4.6 6.6h.6M6.9 6.6h.6M9.2 6.6h.6M11.5 6.6h.1M4.6 8.3h.6M6.9 8.3h.6M9.2 8.3h2.3M6.2 9.8h3.6"/></>,
+  maximize: <rect x="4.3" y="4.3" width="7.4" height="7.4" rx="1"/>,
+  restore: <><rect x="3.2" y="5.6" width="6.4" height="6.4" rx="1"/><path d="M5.8 5.6V4.1c0-.5.4-.9.9-.9h4.3c.5 0 .9.4.9.9v4.3c0 .5-.4.9-.9.9H9.6"/></>,
   prev: <><path d="M4.8 3.8v8.4" strokeWidth="1.6"/><path d="M12 3.9 6.1 8l5.9 4.1z" fill="currentColor" stroke="none"/></>,
   next: <><path d="M11.2 3.8v8.4" strokeWidth="1.6"/><path d="M4 3.9 9.9 8 4 12.1z" fill="currentColor" stroke="none"/></>,
   close: <path d="M4.2 4.2 11.8 11.8M11.8 4.2 4.2 11.8"/>,
@@ -299,6 +301,7 @@ function PreviewStage({ settings, status, fps, paused, onPaused, guides, onGuide
 function Studio() {
   const { settings, status, update } = useSettings();
   const [section, setSection] = useState<Section>('Home');
+  const [maximized, setMaximized] = useState(false);
   const [recordingKeybind, setRecordingKeybind] = useState<ToggleActionId | null>(null);
   const [keybindHint, setKeybindHint] = useState('');
   const [fps, setFps] = useState(0);
@@ -370,6 +373,10 @@ function Studio() {
     else if (command === 'back') audio.currentTime = Math.max(0, audio.currentTime - 10);
     else if (command === 'forward') audio.currentTime = Math.min(Number.isFinite(audio.duration) ? audio.duration : audio.currentTime + 10, audio.currentTime + 10);
   }), []);
+  useEffect(() => {
+    void window.echo?.getWindowState().then((state) => setMaximized(state.maximized));
+    return window.echo?.onWindowState((state) => setMaximized(state.maximized));
+  }, []);
   useEffect(() => {
     if (!recordingKeybind) return;
     void window.echo?.setKeybindCapture(true);
@@ -546,6 +553,11 @@ function Studio() {
           {track && <button type="button" className="icon-btn" onClick={toggleLocal} aria-label={playing ? 'Pause local track' : 'Play local track'} title={playing ? 'Pause local track' : 'Play local track'}>
             {playing ? <Icon name="pause"/> : <Icon name="play"/>}
           </button>}
+          <div className="window-controls">
+            <button type="button" className="window-btn" onClick={() => { void window.echo?.windowControl('minimize').catch(() => {}); }} aria-label="Minimize" title="Minimize"><Icon name="minus"/></button>
+            <button type="button" className="window-btn" onClick={() => { void window.echo?.windowControl('maximize').then((state) => setMaximized(state.maximized)).catch(() => {}); }} aria-label={maximized ? 'Restore' : 'Maximize'} title={maximized ? 'Restore' : 'Maximize'}>{maximized ? <Icon name="restore"/> : <Icon name="maximize"/>}</button>
+            <button type="button" className="window-btn close" onClick={() => { void window.echo?.windowControl('close').catch(() => {}); }} aria-label="Close studio" title="Close studio"><Icon name="close"/></button>
+          </div>
         </div>
       </header>
 

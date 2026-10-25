@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { AppSettings, AudioFeatures, EchoAPI, MediaCommand, PlaybackState, RuntimeStatus, TimedLine, WordTimingKind } from '../src/types';
+import type { AppSettings, AudioFeatures, EchoAPI, MediaCommand, PlaybackState, RuntimeStatus, TimedLine, WindowAction, WindowState, WordTimingKind } from '../src/types';
 
 const api: EchoAPI = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
@@ -34,6 +34,13 @@ const api: EchoAPI = {
     return () => ipcRenderer.removeListener('playback:command', listener);
   },
   setKeybindCapture: (active: boolean) => ipcRenderer.invoke('keybinds:capture', active),
+  windowControl: (action: WindowAction) => ipcRenderer.invoke('window:control', action),
+  getWindowState: () => ipcRenderer.invoke('window:state'),
+  onWindowState(callback: (state: WindowState) => void) {
+    const listener = (_event: Electron.IpcRendererEvent, state: WindowState) => callback(state);
+    ipcRenderer.on('window:state', listener);
+    return () => ipcRenderer.removeListener('window:state', listener);
+  },
   onPlayback(callback: (state: PlaybackState) => void) {
     const listener = (_event: Electron.IpcRendererEvent, value: PlaybackState) => callback(value);
     ipcRenderer.on('playback:changed', listener);
