@@ -48,22 +48,6 @@ The tray icon reopens the studio or hides the overlay. Closing the studio leaves
 
 ## How it works
 
-```text
-Windows media session (SMTC)        local audio file
-        │ title, artist, position            │ HTML audio clock + tags
-        ▼                                    ▼
-   LRCLIB lookup  ──►  LRC / Lyricsfile  ──►  word events
-                                              │
-                    placement engine  ◄───────┘
-                      edges, safe zone, collisions, line layout
-                                              │
-   WASAPI loopback ──► features ──► lighting  │
-        (optional)                     ┌───────▼────────┐
-                                       │  Three.js      │
-                                       │  overlay +     │
-                                       │  studio preview│
-                                       └────────────────┘
-```
 
 - `electron/media.ts` and `native/EchoAudio/MediaWatcher.cs` read the Windows Global System Media Transport Controls session and report identity plus playback position.
 - `electron/lyricsService.ts` matches LRCLIB records strictly by title, artist, and duration, spaces requests, follows rate-limit responses, caches results, and retries temporary failures.
